@@ -57,7 +57,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AureaMed | Dashboard Administrativo</title>
+    <title>AureaMed | Inicio Administrativo</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,10 +88,10 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                     </div>
                 </div>
 
-                <!-- User Profile Card -->
+                <!-- User Profile Card  logo de aurea  esta aqui -->
                 <div class="nav-lateral-avatar">
                     <i class="far fa-times-circle show-nav-lateral" title="Cerrar Menú"></i>
-                    <img src="./assets/avatar/Avatar.png" alt="Avatar">
+                    <img src="./aurea.jpg" alt="Logo de AureaMed">
                     <figcaption>
                         <div><?php echo htmlspecialchars($nombre_usuario); ?></div>
                         <small><i class="fas fa-shield-alt mr-1"></i><?php echo htmlspecialchars($rol_usuario); ?></small>
@@ -104,7 +104,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                     <ul>
                         <li>
                             <a href="panel.php" class="active">
-                                <i class="fas fa-th-large fa-fw"></i> &nbsp; Dashboard
+                                <i class="fas fa-th-large fa-fw"></i> &nbsp; Inicio
                             </a>
                         </li>
                     </ul>
@@ -151,7 +151,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                             </a>
                             <ul>
                                 <li><a href="facturas.php"><i class="fas fa-list-alt fa-fw"></i> &nbsp; Lista de Facturas</a></li>
-                                <li><a href="reservas.php"><i class="fas fa-dollar-sign fa-fw"></i> &nbsp; Registrar Pago</a></li>
+                                <li><a href="pagos_servicio.php"><i class="fas fa-dollar-sign fa-fw"></i> &nbsp; Registrar Pago</a></li>
                             </ul>
                         </li>
 
@@ -218,7 +218,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                     </button>
                     <h3 class="navbar-page-title d-none d-sm-flex">
                         <a href="panel.php" style="color: inherit; text-decoration: none;">
-                            <i class="fas fa-clinic-medical text-primary"></i> AureaMed | Dashboard Administrativo
+                            <i class="fas fa-clinic-medical text-primary"></i> AureaMed | Inicio Administrativo
                         </a>
                     </h3>
                 </div>

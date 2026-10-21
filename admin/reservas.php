@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
@@ -8,6 +8,19 @@ if(!isset($_SESSION['usuario_id'])) {
 $conn = new mysqli('localhost', 'root', '', 'aureamed');
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
+}
+$createPagosTable = "CREATE TABLE IF NOT EXISTS pagos (
+    id_pago INT AUTO_INCREMENT PRIMARY KEY,
+    id_reserva INT NOT NULL,
+    id_usuario INT NOT NULL,
+    monto DECIMAL(10,2) NOT NULL,
+    fecha_pago DATE NOT NULL,
+    metodo VARCHAR(100) NOT NULL,
+    nota TEXT NULL,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+if(!$conn->query($createPagosTable)) {
+    die("Error al preparar la tabla de pagos: " . $conn->error);
 }
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
@@ -19,11 +32,18 @@ $sql = "SELECT r.*,
         p.telefono as paciente_telefono,
         s.nombre_servicio,
         s.precio as servicio_precio,
-        u.nombre as usuario_nombre
+        u.nombre as usuario_nombre,
+        COALESCE(pagos.total_pagado, 0) as total_pagado,
+        pagos.ultimo_pago_id
         FROM reservas r
         JOIN pacientes p ON r.id_paciente = p.id_paciente
         JOIN servicios s ON r.id_servicio = s.id_servicio
         JOIN usuarios u ON r.id_usuario = u.id_usuario
+        LEFT JOIN (
+            SELECT id_reserva, SUM(monto) as total_pagado, MAX(id_pago) as ultimo_pago_id
+            FROM pagos
+            GROUP BY id_reserva
+        ) pagos ON pagos.id_reserva = r.id_reserva
         ORDER BY r.fecha_reserva DESC, r.hora_reserva DESC";
 
 $resultado = $conn->query($sql);
@@ -50,7 +70,7 @@ $resultado = $conn->query($sql);
             <div class="nav-lateral-content">
                 <figure class="nav-lateral-avatar">
                     <i class="far fa-times-circle show-nav-lateral"></i>
-                    <img src="./assets/avatar/Avatar.png" alt="Avatar">
+                    <img src="./aurea.jpg" alt="Logo de AureaMed">
                     <figcaption>
                         <?php echo htmlspecialchars($nombre_usuario); ?><br>
                         <small><?php echo htmlspecialchars($rol_usuario); ?> &bull; AureaMed</small>
@@ -59,7 +79,7 @@ $resultado = $conn->query($sql);
                 <div class="nav-lateral-bar"></div>
                 <nav class="nav-lateral-menu">
                     <ul>
-                        <li><a href="panel.php"><i class="fas fa-th-large fa-fw"></i> &nbsp; Dashboard</a></li>
+                        <li><a href="panel.php"><i class="fas fa-th-large fa-fw"></i> &nbsp; Inicio</a></li>
                         <li>
                             <a href="#" class="nav-btn-submenu"><i class="fas fa-users fa-fw"></i> &nbsp; Pacientes <i class="fas fa-chevron-down"></i></a>
                             <ul>
@@ -89,7 +109,7 @@ $resultado = $conn->query($sql);
                             <a href="#" class="nav-btn-submenu"><i class="fas fa-file-invoice-dollar fa-fw"></i> &nbsp; Facturación <i class="fas fa-chevron-down"></i></a>
                             <ul>
                                 <li><a href="facturas.php"><i class="fas fa-list-alt fa-fw"></i> &nbsp; Lista de Facturas</a></li>
-                                <li><a href="reservas.php"><i class="fas fa-dollar-sign fa-fw"></i> &nbsp; Registrar Pago</a></li>
+                                <li><a href="pagos_servicio.php"><i class="fas fa-dollar-sign fa-fw"></i> &nbsp; Registrar Pago</a></li>
                             </ul>
                         </li>
                         <li><a href="mensajes.php"><i class="fas fa-envelope-open-text fa-fw"></i> &nbsp; Citas Web / Mensajes</a></li>
@@ -164,6 +184,7 @@ $resultado = $conn->query($sql);
                                     <th>FECHA CITA</th>
                                     <th>HORA</th>
                                     <th>ESTADO</th>
+                                    <th>PAGO</th>
                                     <th>ATENDIDO POR</th>
                                     <th>ACCIONES</th>
                                 </tr>
@@ -190,6 +211,13 @@ $resultado = $conn->query($sql);
                                             <td><?php echo date('d/m/Y', strtotime($row['fecha_reserva'])); ?></td>
                                             <td><strong><?php echo substr($row['hora_reserva'], 0, 5); ?></strong></td>
                                             <td><span class="<?php echo $badge_class; ?>"><?php echo ucfirst($row['estado']); ?></span></td>
+                                            <td>
+                                                <?php if($row['ultimo_pago_id']): ?>
+                                                    <span class="badge badge-success">Pagado · Bs. <?php echo number_format((float)$row['total_pagado'], 2); ?></span>
+                                                <?php else: ?>
+                                                    <span class="badge badge-warning">No pagado</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td><small class="text-muted"><?php echo htmlspecialchars($row['usuario_nombre']); ?></small></td>
                                             <td>
                                                 <div class="btn-group">
@@ -199,6 +227,11 @@ $resultado = $conn->query($sql);
                                                     <a href="pagos_servicio.php?id_reserva=<?php echo $row['id_reserva']; ?>" class="btn btn-info btn-sm" title="Pago / Comprobante">
                                                         <i class="fas fa-dollar-sign"></i>
                                                     </a>
+                                                    <?php if($row['ultimo_pago_id']): ?>
+                                                    <a href="factura_ver.php?id=<?php echo (int)$row['ultimo_pago_id']; ?>" class="btn btn-success btn-sm" title="Ver factura">
+                                                        <i class="fas fa-file-invoice"></i>
+                                                    </a>
+                                                    <?php endif; ?>
                                                     <?php if($row['estado'] !== 'cancelada'): ?>
                                                     <button type="button" class="btn btn-danger btn-sm btn-cancelar-reserva" 
                                                             data-id="<?php echo $row['id_reserva']; ?>" 
@@ -213,7 +246,7 @@ $resultado = $conn->query($sql);
                                     <?php endwhile; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">
+                                        <td colspan="9" class="text-center py-4 text-muted">
                                             <i class="fas fa-calendar-times fa-2x mb-2 d-block"></i>
                                             No hay citas o reservas registradas en el sistema.
                                         </td>

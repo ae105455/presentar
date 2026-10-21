@@ -83,7 +83,7 @@ $reservas = $conn->query("SELECT * FROM reservas_rapidas ORDER BY fecha_registro
             <div class="nav-lateral-content">
                 <figure class="nav-lateral-avatar">
                     <i class="far fa-times-circle show-nav-lateral"></i>
-                    <img src="./assets/avatar/Avatar.png" alt="Avatar">
+                    <img src="./aurea.jpg" alt="Logo de AureaMed">
                     <figcaption>
                         <?php echo htmlspecialchars($nombre_usuario); ?><br>
                         <small><?php echo htmlspecialchars($rol_usuario); ?> &bull; AureaMed</small>
@@ -92,7 +92,7 @@ $reservas = $conn->query("SELECT * FROM reservas_rapidas ORDER BY fecha_registro
                 <div class="nav-lateral-bar"></div>
                 <nav class="nav-lateral-menu">
                     <ul>
-                        <li><a href="panel.php"><i class="fas fa-th-large fa-fw"></i> &nbsp; Dashboard</a></li>
+                        <li><a href="panel.php"><i class="fas fa-th-large fa-fw"></i> &nbsp; Inicio</a></li>
                         <li>
                             <a href="#" class="nav-btn-submenu"><i class="fas fa-users fa-fw"></i> &nbsp; Pacientes <i class="fas fa-chevron-down"></i></a>
                             <ul>
@@ -122,7 +122,7 @@ $reservas = $conn->query("SELECT * FROM reservas_rapidas ORDER BY fecha_registro
                             <a href="#" class="nav-btn-submenu"><i class="fas fa-file-invoice-dollar fa-fw"></i> &nbsp; Facturación <i class="fas fa-chevron-down"></i></a>
                             <ul>
                                 <li><a href="facturas.php"><i class="fas fa-list-alt fa-fw"></i> &nbsp; Lista de Facturas</a></li>
-                                <li><a href="reservas.php"><i class="fas fa-dollar-sign fa-fw"></i> &nbsp; Registrar Pago</a></li>
+                                <li><a href="pagos_servicio.php"><i class="fas fa-dollar-sign fa-fw"></i> &nbsp; Registrar Pago</a></li>
                             </ul>
                         </li>
                         <li>

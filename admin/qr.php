@@ -91,12 +91,12 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
         <div class="nav-lateral-content">
             <figure class="nav-lateral-avatar">
                 <i class="far fa-times-circle show-nav-lateral"></i>
-                <img src="./assets/avatar/Avatar.png" alt="Avatar">
+                <img src="./aurea.jpg" alt="Logo de AureaMed">
                 <figcaption><?php echo htmlspecialchars($nombre_usuario); ?><br><small><?php echo htmlspecialchars($rol_usuario); ?> &bull; AureaMed</small></figcaption>
             </figure>
             <nav class="nav-lateral-menu">
                 <ul>
-                    <li><a href="panel.php"><i class="fas fa-th-large fa-fw"></i> &nbsp; Dashboard</a></li>
+                    <li><a href="panel.php"><i class="fas fa-th-large fa-fw"></i> &nbsp; Inicio</a></li>
                     <li><a href="pacientes.php"><i class="fas fa-users fa-fw"></i> &nbsp; Pacientes</a></li>
                     <li><a href="servicios.php"><i class="fas fa-stethoscope fa-fw"></i> &nbsp; Servicios</a></li>
                     <li><a href="reservas.php"><i class="fas fa-calendar-alt fa-fw"></i> &nbsp; Reservas</a></li>
