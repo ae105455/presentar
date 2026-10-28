@@ -89,7 +89,7 @@ mysql -u root -p aureamed < "C:\xampp\htdocs\web2026\aureamed_database.sql"
 ### Desde phpMyAdmin:
 1. Abre phpMyAdmin: `http://localhost/phpmyadmin/`
 2. Haz clic en **"aureamed"** en el lado izquierdo
-3. Deberías ver 8 tablas:
+3. Deberías ver 9 tablas creadas por el script:
    - ✓ usuarios
    - ✓ pacientes
    - ✓ servicios
@@ -97,6 +97,8 @@ mysql -u root -p aureamed < "C:\xampp\htdocs\web2026\aureamed_database.sql"
    - ✓ empresa
    - ✓ mensajes_contacto
    - ✓ reservas_rapidas
+   - ✓ audiometrias
+   - ✓ audiometria_imagenes
 
 ### Desde el navegador (Prueba la aplicación):
 1. Abre: `http://localhost/web2026/admin/index.php`

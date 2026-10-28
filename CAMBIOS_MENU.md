@@ -11,7 +11,7 @@
 1. **`aureamed_database.sql`** 
    - Ubicación: `c:\xampp\htdocs\web2026\`
    - Descripción: Script SQL completo para crear toda la base de datos
-   - Tablas: 8 tablas + datos iniciales
+   - Tablas: 9 tablas en el script SQL, más las tablas auxiliares creadas por módulos de la aplicación
    - Tamaño: Script listo para importar en phpMyAdmin
 
 2. **`INSTRUCCIONES_BASE_DATOS.md`**
@@ -26,7 +26,7 @@
 
 ## 🗄️ BASE DE DATOS - `aureamed_database.sql`
 
-### Tablas Creadas (8 totales):
+### Tablas Creadas (9 en el script SQL):
 
 | # | Tabla | Descripción | Registros Iniciales |
 |---|-------|-------------|-------------------|
@@ -37,6 +37,8 @@
 | 5 | `empresa` | Información de la clínica | 1 |
 | 6 | `mensajes_contacto` | Mensajes del formulario web | 0 |
 | 7 | `reservas_rapidas` | Reservas rápidas desde sitio | 0 |
+| 8 | `audiometrias` | Evaluaciones y recomendaciones por paciente | 0 |
+| 9 | `audiometria_imagenes` | Fotos vinculadas a cada audiometría | 0 |
 
 ### Características de la BD:
 - ✅ Codificación: UTF8MB4 (soporta acentos y caracteres especiales)
@@ -156,7 +158,7 @@ Rol: Administrador
 
 ### Base de Datos:
 ✅ Script SQL completo y funcional
-✅ 8 tablas con relaciones correctas
+✅ 9 tablas del script SQL con relaciones correctas
 ✅ Datos iniciales listos
 ✅ Codificación UTF-8
 ✅ Listo para importar en phpMyAdmin

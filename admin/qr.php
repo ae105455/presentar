@@ -15,6 +15,7 @@ $tipo = isset($_POST['tipo']) ? $_POST['tipo'] : 'paciente';
 $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 $qr_path = '';
 $qr_error = '';
+$qr_warning = '';
 $datos = null;
 
 $catalogos = array(
@@ -45,22 +46,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $id > 0) {
     $stmt->close();
 
     if ($datos) {
-        $contenido = 'AureaMed | ' . $catalogos[$tipo]['label'] . PHP_EOL;
-        foreach ($datos as $campo => $valor) {
-            $contenido .= ucfirst(str_replace('_', ' ', $campo)) . ': ' . $valor . PHP_EOL;
+        if ($tipo === 'paciente') {
+            $create_qr_tokens = "CREATE TABLE IF NOT EXISTS qr_pacientes (
+                id_paciente INT PRIMARY KEY,
+                token CHAR(64) NOT NULL UNIQUE,
+                actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_qr_paciente FOREIGN KEY (id_paciente)
+                    REFERENCES pacientes(id_paciente) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            if (!$conn->query($create_qr_tokens)) {
+                $qr_error = 'No se pudo preparar el acceso seguro del QR.';
+            } else {
+                $token = bin2hex(random_bytes(32));
+                $stmt_token = $conn->prepare("INSERT INTO qr_pacientes (id_paciente, token) VALUES (?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token)");
+                if (!$stmt_token) {
+                    $qr_error = 'No se pudo preparar el QR del paciente: ' . $conn->error;
+                } else {
+                    $stmt_token->bind_param('is', $id, $token);
+                    if (!$stmt_token->execute()) {
+                        $qr_error = 'No se pudo guardar el acceso seguro del QR: ' . $stmt_token->error;
+                    }
+                    $stmt_token->close();
+                }
+            }
+
+            $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+            $script_dir = str_replace('\\', '/', dirname(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '/admin/qr.php'));
+            if (!$qr_error && !preg_match('/\A(?:[a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])(?::\d{1,5})?\z/', $host)) {
+                $qr_error = 'El servidor no proporcionó un nombre de host válido para el QR.';
+            }
+            if (preg_match('/\A(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?\z/i', $host)) {
+                $qr_warning = 'Este QR usa localhost y solo abre en este computador. Para escanearlo desde un teléfono, el sitio debe estar publicado o configurado para acceso seguro en la red local.';
+            }
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            if (!$qr_error) {
+                $contenido = $scheme . '://' . $host . rtrim($script_dir, '/') . '/qr_paciente.php?token=' . $token;
+            }
+        } else {
+            $contenido = 'AureaMed | ' . $catalogos[$tipo]['label'] . PHP_EOL;
+            foreach ($datos as $campo => $valor) {
+                $contenido .= ucfirst(str_replace('_', ' ', $campo)) . ': ' . $valor . PHP_EOL;
+            }
         }
 
-        require_once __DIR__ . '/comprobante_helpers.php';
-        $qr_dir = __DIR__ . '/QR2026/qrs/';
-        if (!is_dir($qr_dir) && !mkdir($qr_dir, 0775, true) && !is_dir($qr_dir)) {
-            $qr_error = 'No se pudo preparar la carpeta para guardar el código QR.';
-        }
         if (!$qr_error) {
-            $nombre_archivo = $tipo . '_' . $id . '.svg';
-            if (file_put_contents($qr_dir . $nombre_archivo, generarCodigoQrSvg($contenido, 'M', 2)) === false) {
-                $qr_error = 'No se pudo guardar el código QR.';
-            } else {
-                $qr_path = 'QR2026/qrs/' . $nombre_archivo;
+            require_once __DIR__ . '/comprobante_helpers.php';
+            $qr_dir = __DIR__ . '/QR2026/qrs/';
+            if (!is_dir($qr_dir) && !mkdir($qr_dir, 0775, true) && !is_dir($qr_dir)) {
+                $qr_error = 'No se pudo preparar la carpeta para guardar el código QR.';
+            }
+            if (!$qr_error) {
+                $nombre_archivo = $tipo . '_' . $id . '.svg';
+                if (file_put_contents($qr_dir . $nombre_archivo, generarCodigoQrSvg($contenido, 'M', 2)) === false) {
+                    $qr_error = 'No se pudo guardar el código QR.';
+                } else {
+                    $qr_path = 'QR2026/qrs/' . $nombre_archivo;
+                }
             }
         }
     } else {
@@ -125,6 +166,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                 <div style="padding: 24px;">
                     <p class="text-muted">Seleccione un tipo de registro y genere un código QR con sus datos.</p>
                     <?php if ($qr_error): ?><div class="alert alert-danger"><?php echo htmlspecialchars($qr_error); ?></div><?php endif; ?>
+                    <?php if ($qr_warning): ?><div class="alert alert-warning"><?php echo htmlspecialchars($qr_warning); ?></div><?php endif; ?>
                     <form method="post" class="qr-form">
                         <div><label for="tipo">Tipo de información</label><select class="form-control" id="tipo" name="tipo"><option value="paciente" <?php echo $tipo === 'paciente' ? 'selected' : ''; ?>>Paciente</option><option value="servicio" <?php echo $tipo === 'servicio' ? 'selected' : ''; ?>>Servicio</option><option value="personal" <?php echo $tipo === 'personal' ? 'selected' : ''; ?>>Personal</option></select></div>
                         <div><label for="id">ID del registro</label><input class="form-control" id="id" name="id" type="number" min="1" required value="<?php echo $id ?: ''; ?>"></div>

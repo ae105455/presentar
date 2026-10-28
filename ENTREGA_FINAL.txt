@@ -7,7 +7,7 @@ c:\xampp\htdocs\web2026\
 │
 ├─ ⭐ aureamed_database.sql
 │   └─ Script SQL completo para importar en XAMPP
-│     • 8 tablas creadas
+│     • 9 tablas creadas en el script SQL
 │     • Datos iniciales (admin, empresa, servicios)
 │     • Foreign keys y índices
 │     • Codificación UTF8MB4
@@ -47,7 +47,7 @@ c:\xampp\htdocs\web2026\
 
 ### 1. BASE DE DATOS `aureamed_database.sql`
 
-**✅ Tablas Creadas (8 totales):**
+**✅ Tablas Creadas (9 en el script SQL):**
 - ✅ usuarios (1 admin inicial)
 - ✅ pacientes (lista para usar)
 - ✅ servicios (5 servicios iniciales)
@@ -55,6 +55,8 @@ c:\xampp\htdocs\web2026\
 - ✅ empresa (datos de la clínica)
 - ✅ mensajes_contacto (formulario web)
 - ✅ reservas_rapidas (reservas desde sitio)
+- ✅ audiometrias (evaluaciones y recomendaciones por paciente)
+- ✅ audiometria_imagenes (fotos de las evaluaciones)
 
 **✅ Características:**
 - ✅ Codificación UTF8MB4 (acentos, caracteres especiales)
@@ -136,7 +138,7 @@ c:\xampp\htdocs\web2026\
 ```
 1. En phpMyAdmin, verifica que existe "aureamed"
 2. Click en "aureamed"
-3. Deberías ver 8 tablas
+3. Deberías ver 9 tablas creadas por el script SQL
 ```
 
 ### Paso 3: Acceder a la aplicación
@@ -154,7 +156,7 @@ c:\xampp\htdocs\web2026\
 Después de importar, verifica:
 
 - [ ] Base de datos `aureamed` existe
-- [ ] 8 tablas están creadas
+- [ ] 9 tablas están creadas por el script SQL
 - [ ] Usuario admin existe
 - [ ] Datos de empresa están presentes
 - [ ] 5 servicios están configurados

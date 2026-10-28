@@ -48,6 +48,36 @@ CREATE TABLE IF NOT EXISTS pacientes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
+-- TABLAS: HISTORIAL DE AUDIOMETRÍAS Y SUS IMÁGENES
+-- ================================================================
+CREATE TABLE IF NOT EXISTS audiometrias (
+    id_audiometria INT AUTO_INCREMENT PRIMARY KEY,
+    id_paciente INT NOT NULL,
+    fecha_audiometria DATE NOT NULL,
+    edad SMALLINT UNSIGNED NOT NULL,
+    audifono_actual VARCHAR(180) NOT NULL,
+    audifono_recomendado VARCHAR(180) NOT NULL,
+    responsable VARCHAR(150) NOT NULL,
+    observaciones TEXT,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_audiometria_paciente FOREIGN KEY (id_paciente)
+        REFERENCES pacientes(id_paciente) ON DELETE CASCADE,
+    INDEX idx_audiometria_paciente (id_paciente),
+    INDEX idx_audiometria_fecha (fecha_audiometria)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audiometria_imagenes (
+    id_imagen INT AUTO_INCREMENT PRIMARY KEY,
+    id_audiometria INT NOT NULL,
+    archivo VARCHAR(40) NOT NULL,
+    tipo_mime VARCHAR(30) NOT NULL,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_imagen_audiometria FOREIGN KEY (id_audiometria)
+        REFERENCES audiometrias(id_audiometria) ON DELETE CASCADE,
+    INDEX idx_imagen_audiometria (id_audiometria)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ================================================================
 -- 4. TABLA: SERVICIOS
 -- ================================================================
 CREATE TABLE IF NOT EXISTS servicios (

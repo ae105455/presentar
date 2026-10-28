@@ -9,9 +9,16 @@ $conn = new mysqli('localhost', 'root', '', 'aureamed');
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+require_once __DIR__ . '/audiometria_helpers.php';
+asegurarTablasAudiometria($conn);
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
+$csrf_token = bin2hex(random_bytes(32));
+$_SESSION['csrf_audiometria'] = $csrf_token;
+$mensaje_audiometria = isset($_SESSION['mensaje_audiometria']) ? $_SESSION['mensaje_audiometria'] : '';
+$tipo_mensaje_audiometria = isset($_SESSION['tipo_mensaje_audiometria']) ? $_SESSION['tipo_mensaje_audiometria'] : '';
+unset($_SESSION['mensaje_audiometria'], $_SESSION['tipo_mensaje_audiometria']);
 $buscar = isset($_GET['buscar']) ? trim($_GET['buscar']) : '';
 $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : '2000-01-01';
 $fecha_fin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-d');
@@ -19,13 +26,21 @@ $buscar_sql = $conn->real_escape_string($buscar);
 $fecha_inicio_sql = $conn->real_escape_string($fecha_inicio);
 $fecha_fin_sql = $conn->real_escape_string($fecha_fin);
 
-$sql = "SELECT id_paciente, cedula, nombre, apellido, telefono, email, fecha_registro 
+$sql = "SELECT id_paciente, cedula, nombre, apellido, telefono, email, fecha_nac, fecha_registro
         FROM pacientes 
     WHERE fecha_registro >= '" . $fecha_inicio_sql . "'
     AND fecha_registro < DATE_ADD('" . $fecha_fin_sql . "', INTERVAL 1 DAY)
     AND ('" . $buscar_sql . "' = '' OR nombre LIKE '%" . $buscar_sql . "%' OR apellido LIKE '%" . $buscar_sql . "%' OR cedula LIKE '%" . $buscar_sql . "%')
         ORDER BY id_paciente DESC";
 $resultado = $conn->query($sql);
+$conteos_audiometrias = [];
+$conteos_resultado = $conn->query("SELECT id_paciente, COUNT(*) AS total FROM audiometrias GROUP BY id_paciente");
+if (!$conteos_resultado) {
+    die("Error al consultar el historial de audiometrías: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+while ($conteo = $conteos_resultado->fetch_assoc()) {
+    $conteos_audiometrias[(int)$conteo['id_paciente']] = (int)$conteo['total'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -139,6 +154,11 @@ $resultado = $conn->query($sql);
             </div>
 
             <div class="container-fluid">
+                <?php if ($mensaje_audiometria !== ''): ?>
+                    <div class="alert alert-<?php echo htmlspecialchars($tipo_mensaje_audiometria, ENT_QUOTES, 'UTF-8'); ?>" role="alert">
+                        <?php echo htmlspecialchars($mensaje_audiometria, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
                 <form method="get" class="report-filter-form report-filter-form-wide patients-filter">
                     <div class="report-filter-field report-search-field">
                         <label for="buscar">Buscar</label>
@@ -179,9 +199,11 @@ $resultado = $conn->query($sql);
                                     <th>CÉDULA</th>
                                     <th>NOMBRE</th>
                                     <th>APELLIDO</th>
+                                    <th>EDAD</th>
                                     <th>TELÉFONO</th>
                                     <th>EMAIL</th>
                                     <th>REGISTRO</th>
+                                    <th>AUDIOMETRÍAS</th>
                                     <th>ACCIONES</th>
                                 </tr>
                             </thead>
@@ -193,11 +215,25 @@ $resultado = $conn->query($sql);
                                             <td><span class="badge badge-light" style="font-size: 13px;"><?php echo htmlspecialchars($row['cedula']); ?></span></td>
                                             <td><strong><?php echo htmlspecialchars($row['nombre']); ?></strong></td>
                                             <td><?php echo htmlspecialchars($row['apellido']); ?></td>
+                                            <td><?php echo htmlspecialchars(edadPaciente($row['fecha_nac']), ENT_QUOTES, 'UTF-8'); ?></td>
                                             <td><?php echo htmlspecialchars($row['telefono']) ?: '-'; ?></td>
                                             <td><?php echo htmlspecialchars($row['email']) ?: '-'; ?></td>
                                             <td><?php echo date('d/m/Y', strtotime($row['fecha_registro'])); ?></td>
                                             <td>
+                                                <a href="audimetria_historial.php?id_paciente=<?php echo (int)$row['id_paciente']; ?>" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-file-medical"></i>
+                                                    <?php echo isset($conteos_audiometrias[(int)$row['id_paciente']]) ? $conteos_audiometrias[(int)$row['id_paciente']] : 0; ?> ver
+                                                </a>
+                                            </td>
+                                            <td>
                                                 <div class="btn-group">
+                                                    <button type="button" class="btn btn-success btn-sm btn-nueva-audiometria"
+                                                            data-toggle="modal" data-target="#modalAudiometria"
+                                                            data-id="<?php echo (int)$row['id_paciente']; ?>"
+                                                            data-nombre="<?php echo htmlspecialchars($row['nombre'] . ' ' . $row['apellido'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                            title="Registrar audiometría">
+                                                        <i class="fas fa-file-medical"></i>
+                                                    </button>
                                                     <a href="paciente_editar.php?id=<?php echo $row['id_paciente']; ?>" class="btn btn-primary btn-sm" title="Editar Paciente">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
@@ -213,7 +249,7 @@ $resultado = $conn->query($sql);
                                     <?php endwhile; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">
+                                        <td colspan="10" class="text-center py-4 text-muted">
                                             <i class="fas fa-user-slash fa-2x mb-2 d-block"></i>
                                             No hay pacientes registrados todavía.
                                         </td>
@@ -221,6 +257,31 @@ $resultado = $conn->query($sql);
                                 <?php endif; ?>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal fade" id="modalAudiometria" tabindex="-1" role="dialog" aria-labelledby="modalAudiometriaTitulo" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <form action="audimetria_guardar.php" method="post" enctype="multipart/form-data">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalAudiometriaTitulo">Registrar audiometría</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+                            </div>
+                            <div class="modal-body">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                                <input type="hidden" name="id_paciente" id="audiometria_id_paciente">
+                                <p class="font-weight-bold" id="audiometria_nombre_paciente"></p>
+                                <div class="form-group">
+                                    <label for="imagen_audiometria">Foto de la audiometría (JPG, PNG o WEBP; máximo 5 MB)</label>
+                                    <input class="form-control-file" type="file" id="imagen_audiometria" name="imagen" accept="image/jpeg,image/png,image/webp" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar audiometría</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -234,6 +295,11 @@ $resultado = $conn->query($sql);
     <script src="./js/main.js"></script>
     <script>
         $(document).ready(function() {
+            $('.btn-nueva-audiometria').on('click', function() {
+                $('#audiometria_id_paciente').val($(this).data('id'));
+                $('#audiometria_nombre_paciente').text($(this).data('nombre'));
+            });
+
             $('.btn-eliminar-paciente').on('click', function(e) {
                 e.preventDefault();
                 var id = $(this).data('id');

@@ -25,6 +25,10 @@ desktop.ini
 *.cache
 *.tmp
 
+# Datos generados localmente: imágenes clínicas y códigos QR con datos de pacientes
+admin/uploads/audiometrias/*
+!admin/uploads/audiometrias/.htaccess
+admin/QR2026/qrs/paciente_*.svg
 
 
 

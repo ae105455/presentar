@@ -32,7 +32,7 @@ Se ha completado satisfactoriamente:
 ### 2️⃣ Verificar que funciona
 - Abre: `http://localhost/phpmyadmin/`
 - En el lado izquierdo, deberías ver `aureamed`
-- Haz clic en ella y verás las 8 tablas
+- Haz clic en ella y verás las tablas de la aplicación, incluidas las de audiometrías
 
 ### 3️⃣ Acceder a la aplicación
 - Abre: `http://localhost/web2026/admin/index.php`
@@ -43,7 +43,7 @@ Se ha completado satisfactoriamente:
 
 ## 📊 BASE DE DATOS - DETALLES
 
-### Tablas (8 totales):
+### Tablas del script SQL (9):
 
 ```
 usuarios ..................... Cuentas de administradores, recepcionistas, audiólogos
@@ -53,6 +53,8 @@ reservas ..................... Citas/reservas de pacientes
 empresa ...................... Información de la clínica
 mensajes_contacto ............ Mensajes del formulario web
 reservas_rapidas ............. Reservas rápidas desde sitio web
+audiometrias ................. Evaluaciones y recomendaciones por paciente
+audiometria_imagenes ......... Fotos asociadas a cada audiometría
 ```
 
 ### Características:
@@ -122,7 +124,7 @@ $database = 'aureamed';   // Base de datos
 Después de importar, verifica que:
 
 - [ ] La BD `aureamed` existe en phpMyAdmin
-- [ ] Hay 8 tablas en la BD
+- [ ] Están creadas las tablas de pacientes y audiometrías
 - [ ] Tabla `usuarios` tiene 1 registro (admin)
 - [ ] Tabla `servicios` tiene 5 registros
 - [ ] Tabla `empresa` tiene 1 registro

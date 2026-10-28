@@ -19,7 +19,7 @@ FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = 'aureamed'
 ORDER BY TABLE_NAME;
 
--- Resultado esperado: 8 tablas (usuarios, pacientes, servicios, reservas, empresa, mensajes_contacto, reservas_rapidas)
+-- El script crea 9 tablas, incluidas audiometrias y audiometria_imagenes.
 
 -- ================================================================
 -- 2. VERIFICAR USUARIO ADMIN

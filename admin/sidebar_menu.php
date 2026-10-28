@@ -46,9 +46,8 @@ $render_group = static function($label, $icon, $items, $pages, $current_page) us
     <?php $render_group('Reportes', 'fa-chart-bar', [
         ['reporte_citas.php', 'fa-calendar-alt', 'Reporte de Citas'],
         ['reporte_pacientes.php', 'fa-user-check', 'Pacientes Atendidos'],
-        ['reporte_servicios.php', 'fa-chart-pie', 'Demanda de Servicios'],
-        ['REPPDF/index.php', 'fa-file-pdf', 'Reporte PDF / XLS']
-    ], ['reporte_citas.php', 'reporte_pacientes.php', 'reporte_servicios.php', 'REPPDF/index.php'], $current_page === 'index.php' ? 'REPPDF/index.php' : $current_page); ?>
+        ['reporte_servicios.php', 'fa-chart-pie', 'Demanda de Servicios']
+    ], ['reporte_citas.php', 'reporte_pacientes.php', 'reporte_servicios.php'], $current_page); ?>
     <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin'): ?>
         <?php $render_group('Usuarios', 'fa-user-shield', [
             ['usuario_nuevo.php', 'fa-user-plus', 'Nuevo Usuario'],

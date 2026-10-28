@@ -175,7 +175,6 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                                 <li><a href="reporte_citas.php"><i class="fas fa-calendar-alt fa-fw"></i> &nbsp; Reporte de Citas</a></li>
                                 <li><a href="reporte_pacientes.php"><i class="fas fa-user-check fa-fw"></i> &nbsp; Pacientes Atendidos</a></li>
                                 <li><a href="reporte_servicios.php"><i class="fas fa-chart-pie fa-fw"></i> &nbsp; Demanda de Servicios</a></li>
-                                <li><a href="REPPDF/index.php"><i class="fas fa-file-pdf fa-fw"></i> &nbsp; Reporte PDF / XLS</a></li>
                             </ul>
                         </li>
 
