@@ -70,17 +70,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $id > 0) {
                 }
             }
 
-            $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-            $script_dir = str_replace('\\', '/', dirname(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '/admin/qr.php'));
-            if (!$qr_error && !preg_match('/\A(?:[a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])(?::\d{1,5})?\z/', $host)) {
-                $qr_error = 'El servidor no proporcionó un nombre de host válido para el QR.';
+            $qr_base_url = getenv('AUREAMED_QR_BASE_URL');
+            $qr_host = '';
+            if ($qr_base_url !== false && trim($qr_base_url) !== '') {
+                $parsed_base_url = parse_url(trim($qr_base_url));
+                if (
+                    $parsed_base_url === false
+                    || !isset($parsed_base_url['scheme'], $parsed_base_url['host'])
+                    || !in_array(strtolower($parsed_base_url['scheme']), array('http', 'https'), true)
+                    || isset($parsed_base_url['user'])
+                    || isset($parsed_base_url['pass'])
+                    || isset($parsed_base_url['query'])
+                    || isset($parsed_base_url['fragment'])
+                    || !preg_match('/\A(?:[a-zA-Z0-9.-]+|[0-9a-fA-F:]+)\z/', $parsed_base_url['host'])
+                    || (isset($parsed_base_url['port']) && ($parsed_base_url['port'] < 1 || $parsed_base_url['port'] > 65535))
+                ) {
+                    $qr_error = 'La URL base configurada para el QR no es válida.';
+                } else {
+                    $qr_host = $parsed_base_url['host'];
+                    if (strpos($qr_host, ':') !== false) {
+                        $qr_host = '[' . $qr_host . ']';
+                    }
+                    if (isset($parsed_base_url['port'])) {
+                        $qr_host .= ':' . $parsed_base_url['port'];
+                    }
+                    $qr_base_url = strtolower($parsed_base_url['scheme']) . '://' . $qr_host
+                        . (isset($parsed_base_url['path']) ? rtrim($parsed_base_url['path'], '/') : '');
+                }
+            } else {
+                $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+                $script_dir = str_replace('\\', '/', dirname(isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '/admin/qr.php'));
+                if (!preg_match('/\A(?:[a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])(?::\d{1,5})?\z/', $host)) {
+                    $qr_error = 'El servidor no proporcionó un nombre de host válido para el QR.';
+                } else {
+                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                    $qr_base_url = $scheme . '://' . $host . rtrim($script_dir, '/');
+                    $qr_host = preg_replace('/:\d+\z/', '', $host);
+                    $qr_host = trim($qr_host, '[]');
+                }
             }
-            if (preg_match('/\A(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?\z/i', $host)) {
+            if (preg_match('/\A(?:localhost|127\.0\.0\.1|::1)\z/i', $qr_host)) {
                 $qr_warning = 'Este QR usa localhost y solo abre en este computador. Para escanearlo desde un teléfono, el sitio debe estar publicado o configurado para acceso seguro en la red local.';
             }
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
             if (!$qr_error) {
-                $contenido = $scheme . '://' . $host . rtrim($script_dir, '/') . '/qr_paciente.php?token=' . $token;
+                $contenido = rtrim($qr_base_url, '/') . '/qr_paciente.php?token=' . $token;
             }
         } else {
             $contenido = 'AureaMed | ' . $catalogos[$tipo]['label'] . PHP_EOL;

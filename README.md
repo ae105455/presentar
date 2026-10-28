@@ -102,6 +102,16 @@ Para verificar la BD está correcta:
 
 ## ⚙️ CONFIGURACIÓN DE LA APLICACIÓN
 
+### URL de los códigos QR de pacientes
+
+Al generar un QR, la aplicación usa automáticamente el dominio y la ruta con que se abrió. Para un servidor con una dirección pública distinta (por ejemplo, detrás de un proxy), se puede definir la variable de entorno `AUREAMED_QR_BASE_URL` con la URL completa de la carpeta `admin`, sin `/` al final:
+
+```text
+AUREAMED_QR_BASE_URL=https://dominio-del-sitio/presentar/admin
+```
+
+Si no se define, no se usa un dominio fijo: la URL se detecta desde la solicitud actual. En XAMPP, `localhost` solo funciona en la misma computadora; para escanear el QR desde un teléfono se necesita acceder al sitio por la IP de la computadora en la red local o por el dominio del servidor publicado. GitHub almacena el código, pero no ejecuta esta aplicación PHP.
+
 ### Conexión a BD:
 ```php
 $host = 'localhost';      // Servidor XAMPP
