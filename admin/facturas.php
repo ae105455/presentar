@@ -9,6 +9,7 @@ $conn = new mysqli('localhost', 'root', '', 'aureamed');
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+require_once __DIR__ . '/comprobante_helpers.php';
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
@@ -38,6 +39,7 @@ if($colCheck2 && $colCheck2->num_rows === 0) {
 
 // Generar número de factura para pagos que no tienen
 $conn->query("UPDATE pagos SET numero_factura = CONCAT('FAC-', LPAD(id_pago, 6, '0')) WHERE numero_factura IS NULL OR numero_factura = ''");
+$tokens_comprobante_ok = asegurarTokensComprobante($conn);
 
 // Filtros
 $filtro_metodo = isset($_GET['metodo']) ? $conn->real_escape_string($_GET['metodo']) : '';
@@ -179,6 +181,20 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
             color: #004b87;
             font-size: 13px;
         }
+        .factura-number-cell {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            white-space: nowrap;
+        }
+        .factura-qr-link img {
+            display: block;
+            width: 42px;
+            height: 42px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            background: #fff;
+        }
         .monto-pago {
             font-weight: 800;
             font-size: 15px;
@@ -313,7 +329,7 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
                     <i class="fas fa-bars"></i>
                 </button>
                 <h4 class="navbar-brand-title d-none d-sm-flex">
-                    <i class="fas fa-file-invoice-dollar text-primary"></i> Facturas y Comprobantes
+                    <i class="fas fa-file-invoice-dollar text-primary"></i> Ventas y Leyes
                 </h4>
             </div>
             <div class="navbar-info-right">
@@ -324,7 +340,7 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
 
         <div class="page-header">
             <h3><i class="fas fa-file-invoice-dollar"></i> FACTURAS Y COMPROBANTES</h3>
-            <p>Consulte, filtre e imprima las facturas y comprobantes de pago del Centro Auditivo AureaMed.</p>
+            <p>Busque por paciente, cédula o número de factura. El QR abre el comprobante para que el paciente pueda guardarlo.</p>
         </div>
 
         <div class="container-fluid">
@@ -378,7 +394,7 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
                 <form method="GET" action="facturas.php" class="row g-2 align-items-end">
                     <div class="col-12 col-md-3">
                         <label class="form-label fw-bold" style="font-size:12px;color:#64748b;">BUSCAR</label>
-                        <input type="text" name="buscar" class="form-control" placeholder="Paciente, cédula o N° factura..." value="<?php echo htmlspecialchars($buscar); ?>">
+                        <input type="search" name="buscar" class="form-control" placeholder="Nombre, cédula o FAC-000001" value="<?php echo htmlspecialchars($buscar); ?>">
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label fw-bold" style="font-size:12px;color:#64748b;">MÉTODO</label>
@@ -425,7 +441,16 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
                     <tbody>
                         <?php foreach($pagos as $p): ?>
                         <tr>
-                            <td><span class="num-factura"><?php echo htmlspecialchars($p['num_factura']); ?></span></td>
+                            <td>
+                                <div class="factura-number-cell">
+                                    <span class="num-factura"><?php echo htmlspecialchars($p['num_factura']); ?></span>
+                                    <?php if($tokens_comprobante_ok && !empty($p['token_comprobante'])): ?>
+                                    <a class="factura-qr-link" href="factura_ver.php?token=<?php echo urlencode($p['token_comprobante']); ?>" target="_blank" rel="noopener" title="Abrir comprobante para el paciente">
+                                        <img src="qr_comprobante.php?token=<?php echo urlencode($p['token_comprobante']); ?>" alt="QR del comprobante <?php echo htmlspecialchars($p['num_factura']); ?>">
+                                    </a>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td><?php echo date('d/m/Y', strtotime($p['fecha_pago'])); ?></td>
                             <td>
                                 <strong><?php echo htmlspecialchars($p['paciente_apellido'] . ', ' . $p['paciente_nombre']); ?></strong>
@@ -488,9 +513,10 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
     </section>
 </main>
 
-<script src="./js/jquery.min.js"></script>
-<script src="./js/bootstrap.bundle.min.js"></script>
-<script src="./js/sweetalert2.all.min.js"></script>
-<script src="./js/custom.js"></script>
+<script src="./js/jquery-3.4.1.min.js"></script>
+<script src="./js/popper.min.js"></script>
+<script src="./js/bootstrap.min.js"></script>
+<script src="./js/sweetalert2.min.js"></script>
+<script src="./js/main.js"></script>
 </body>
 </html>

@@ -5,8 +5,17 @@
 
 $(document).ready(function() {
 
+    var $menu = $('.nav-lateral-menu');
+    if ($menu.length) {
+        var currentPage = window.location.pathname.split('/').pop() || 'panel.php';
+        $.get('./sidebar_menu.php', { page: currentPage })
+            .done(function(menuHtml) {
+                $menu.html(menuHtml);
+            });
+    }
+
     /* --- 1. Toggle de Submenús en el Menú Lateral --- */
-    $('.nav-btn-submenu').on('click', function(e) {
+    $(document).on('click', '.nav-btn-submenu', function(e) {
         e.preventDefault();
         var $this = $(this);
         var $subMenu = $this.next('ul');
@@ -17,26 +26,18 @@ $(document).ready(function() {
                 $subMenu.removeClass('show-nav-lateral-submenu');
             });
             $this.removeClass('active');
+            $this.attr('aria-expanded', 'false');
             $iconChevron.removeClass('fa-rotate-180');
         } else {
             $subMenu.slideDown(200, function() {
                 $subMenu.addClass('show-nav-lateral-submenu');
             });
             $this.addClass('active');
+            $this.attr('aria-expanded', 'true');
             $iconChevron.addClass('fa-rotate-180');
         }
     });
-
-    // Mantener abierto el submenú si contiene un enlace activo
-    $('.nav-lateral-menu ul li ul').each(function() {
-        if ($(this).find('a.active').length > 0) {
-            $(this).addClass('show-nav-lateral-submenu').show();
-            $(this).prev('.nav-btn-submenu').addClass('active').find('.fa-chevron-down').addClass('fa-rotate-180');
-        }
-    });
-
-    /* --- 2. Toggle del Menú Lateral (Sidebar) --- */
-    $('.show-nav-lateral').on('click', function(e) {
+    $(document).on('click', '.show-nav-lateral', function(e) {
         e.preventDefault();
         var $navLateral = $('.nav-lateral');
         var $pageContent = $('.page-content');
@@ -45,23 +46,25 @@ $(document).ready(function() {
         if ($navLateral.hasClass('active')) {
             $navLateral.removeClass('active');
             $pageContent.removeClass('active');
-            $backdrop.removeClass('show');
+            $backdrop.removeClass('show-nav-lateral-active');
         } else {
             $navLateral.addClass('active');
             $pageContent.addClass('active');
-            $backdrop.addClass('show');
+            $backdrop.addClass('show-nav-lateral-active');
         }
     });
 
+
+    /* --- 2. Toggle del Menú Lateral (Sidebar) --- */
     // Cerrar sidebar al hacer clic en el backdrop (en móvil)
-    $('.nav-lateral-bg').on('click', function() {
+    $(document).on('click', '.nav-lateral-bg', function() {
         $('.nav-lateral').removeClass('active');
         $('.page-content').removeClass('active');
-        $(this).removeClass('show');
+        $(this).removeClass('show-nav-lateral-active');
     });
 
     /* --- 3. Confirmación de Cierre de Sesión --- */
-    $('.btn-exit-system').on('click', function(e) {
+    $(document).on('click', '.btn-exit-system', function(e) {
         e.preventDefault();
         var logoutUrl = $(this).attr('href') || 'logout.php';
 

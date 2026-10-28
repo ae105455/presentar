@@ -149,7 +149,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-plus-circle text-primary"></i> Registrar Nuevo Servicio
+                        <i class="fas fa-plus-circle text-primary"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">

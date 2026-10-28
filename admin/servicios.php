@@ -115,7 +115,7 @@ $resultado = $conn->query($sql);
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-stethoscope text-primary"></i> Catálogo de Servicios
+                        <i class="fas fa-stethoscope text-primary"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">

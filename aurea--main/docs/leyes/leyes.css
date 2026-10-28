@@ -25,7 +25,6 @@ body {
     background-color: var(--light-gray);
     color: var(--aurea-dark);
     line-height: 1.6;
-    padding-top: 110px !important;/* Solución definitiva para navbar */
     margin: 0;
 }
 
@@ -944,10 +943,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (min-width: 768px) {
-    body {
-        padding-top: 100px;
-    }
-    
     .hero-section {
         padding: 6rem 20px;
         height: 60vh;
@@ -993,10 +988,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (min-width: 992px) {
-    body {
-        padding-top: 130px;
-    }
-    
     .services-grid {
         grid-template-columns: repeat(4, 1fr);
     }

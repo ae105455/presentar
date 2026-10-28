@@ -142,7 +142,7 @@ if(isset($_GET['buscar']) && !empty($_GET['buscar'])) {
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-search text-primary"></i> Búsqueda de Citas Médicas
+                        <i class="fas fa-search text-primary"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">

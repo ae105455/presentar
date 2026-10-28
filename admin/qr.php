@@ -50,14 +50,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $id > 0) {
             $contenido .= ucfirst(str_replace('_', ' ', $campo)) . ': ' . $valor . PHP_EOL;
         }
 
-        require_once __DIR__ . '/QR2026/phpqrcode/qrlib.php';
+        require_once __DIR__ . '/comprobante_helpers.php';
         $qr_dir = __DIR__ . '/QR2026/qrs/';
-        if (!is_dir($qr_dir)) {
-            mkdir($qr_dir, 0775, true);
+        if (!is_dir($qr_dir) && !mkdir($qr_dir, 0775, true) && !is_dir($qr_dir)) {
+            $qr_error = 'No se pudo preparar la carpeta para guardar el código QR.';
         }
-        $nombre_archivo = $tipo . '_' . $id . '.png';
-        QRcode::png($contenido, $qr_dir . $nombre_archivo, QR_ECLEVEL_M, 6, 2);
-        $qr_path = 'QR2026/qrs/' . $nombre_archivo;
+        if (!$qr_error) {
+            $nombre_archivo = $tipo . '_' . $id . '.svg';
+            if (file_put_contents($qr_dir . $nombre_archivo, generarCodigoQrSvg($contenido, 'M', 2)) === false) {
+                $qr_error = 'No se pudo guardar el código QR.';
+            } else {
+                $qr_path = 'QR2026/qrs/' . $nombre_archivo;
+            }
+        }
     } else {
         $qr_error = 'No se encontró el registro seleccionado.';
     }
@@ -110,7 +115,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
         <nav class="navbar-info">
             <div class="navbar-info-left">
                 <button type="button" class="show-nav-lateral btn-icon" title="Ocultar/Mostrar Menú"><i class="fas fa-bars"></i></button>
-                <h4 class="navbar-brand-title d-none d-sm-flex"><i class="fas fa-qrcode text-primary"></i> Generar códigos QR</h4>
+                <h4 class="navbar-brand-title d-none d-sm-flex"><i class="fas fa-qrcode text-primary"></i> Ventas y Leyes</h4>
             </div>
             <div class="navbar-info-right"><a href="perfil.php"><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($nombre_usuario); ?></a></div>
         </nav>

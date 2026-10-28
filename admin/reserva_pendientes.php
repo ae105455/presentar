@@ -125,7 +125,7 @@ $total_pendientes = $resultado ? $resultado->num_rows : 0;
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-clock text-warning"></i> Reservas Pendientes
+                        <i class="fas fa-clock text-warning"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">

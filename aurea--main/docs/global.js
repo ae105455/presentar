@@ -52,9 +52,9 @@ document.addEventListener('click', () => {
     });
 });
 // Cerrar menú  (móvil)
-document.addEventListener('click', () => {
-    if (navMenu && navMenu.classList.contains('show')) {
-        navMenu.classList.remove('show');
+document.addEventListener('click', (event) => {
+    if (navMenu && navMenu.classList.contains('show') && !navToggle.contains(event.target)) {
+        closeMobileMenu();
     }
 });
 // Scrul ubicaciones 
@@ -78,6 +78,17 @@ function scrollToHash() {
 // Detectar elementos del menú hamburguesa (Bootstrap)
 const navToggle = document.querySelector('.navbar-toggler');  // botón hamburguesa
 const navMenu = document.querySelector('#navbarNavDropdown'); // menú que se despliega
+const navbar = document.querySelector('.navbar');
+
+function updateNavbarOffset() {
+    if (!navMenu || !navbar) return;
+
+    if (window.innerWidth < 992 && navMenu.classList.contains('show')) {
+        document.body.style.paddingTop = `${navbar.offsetHeight}px`;
+    } else {
+        document.body.style.removeProperty('padding-top');
+    }
+}
 
 // Asegura que Bootstrap actualice clases correctamente cuando se cierre desde JS
 function closeMobileMenu() {
@@ -85,8 +96,15 @@ function closeMobileMenu() {
         navMenu.classList.remove('show');          // cierra menú
         navToggle.classList.add('collapsed');      // reinicia icono hamburguesa
         navToggle.setAttribute('aria-expanded', 'false');
+        updateNavbarOffset();
     }
 }
+
+if (navMenu) {
+    navMenu.addEventListener('shown.bs.collapse', updateNavbarOffset);
+    navMenu.addEventListener('hidden.bs.collapse', updateNavbarOffset);
+}
+window.addEventListener('resize', updateNavbarOffset);
 
 // Cerrar menú y dropdowns al hacer scroll
 window.addEventListener('scroll', () => {

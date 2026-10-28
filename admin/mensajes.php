@@ -165,7 +165,7 @@ $reservas = $conn->query("SELECT * FROM reservas_rapidas ORDER BY fecha_registro
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-globe text-primary"></i> Solicitudes de Citas Web
+                        <i class="fas fa-globe text-primary"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">

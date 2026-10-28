@@ -27,7 +27,7 @@ if($id > 0) {
     
     if($check->num_rows > 0) {
         // Tiene reservas, solo deshabilitar
-        $stmt = $conn->prepare("UPDATE servicios SET estado = 0 WHERE id_servicio = ?");
+        $stmt = $conn->prepare("UPDATE servicios SET estado = 'inactivo' WHERE id_servicio = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $stmt->close();

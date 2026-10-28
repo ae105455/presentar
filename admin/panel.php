@@ -243,7 +243,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                 <div class="dashboard-hero">
                     <div class="dashboard-hero-content">
                         <div class="dashboard-hero-text">
-                            <h1>👋 ¡Bienvenido en  que le podemos  ayudar <?php echo htmlspecialchars($nombre_usuario); ?>!</h1>
+                            <h1>👋 ¡Bienvenido, <?php echo htmlspecialchars($nombre_usuario); ?>!</h1>
                             <p>Gestione eficientemente el flujo clínico de <strong>AureaMed</strong>. Monitoree citas programadas, historiales de pacientes y solicitudes web en tiempo real.</p>
                         </div>
                         <div class="dashboard-hero-actions">

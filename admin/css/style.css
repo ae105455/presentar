@@ -155,6 +155,10 @@ a:hover {
     scrollbar-color: rgba(255,255,255,0.2) transparent;
 }
 
+.nav-lateral .sidebar-brand {
+    display: none !important;
+}
+
 .nav-lateral-content::-webkit-scrollbar {
     width: 5px;
 }
@@ -1480,6 +1484,9 @@ textarea.form-control {
     .nav-lateral {
         transform: translateX(calc(-1 * var(--sidebar-width)));
     }
+    .nav-lateral.active {
+        transform: translateX(0);
+    }
     .nav-lateral.show-nav-lateral-active {
         transform: translateX(0);
     }
@@ -1497,8 +1504,7 @@ textarea.form-control {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(4px);
+        background: rgba(15, 23, 42, 0.18);
         z-index: 999;
     }
 }

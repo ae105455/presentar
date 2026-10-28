@@ -9,6 +9,7 @@ $conn = new mysqli('localhost', 'root', '', 'aureamed');
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+require_once __DIR__ . '/comprobante_helpers.php';
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
@@ -30,6 +31,9 @@ $columnCheck = $conn->query("SHOW COLUMNS FROM pagos LIKE 'nota'");
 if($columnCheck && $columnCheck->num_rows === 0) {
     $conn->query("ALTER TABLE pagos ADD nota TEXT NULL AFTER metodo");
 }
+if (!asegurarTokensComprobante($conn)) {
+    die('No se pudo preparar el acceso seguro a los comprobantes.');
+}
 
 $payment_saved = false;
 $payment_id = 0;
@@ -44,10 +48,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_pago'])) {
     $metodo_pago = isset($_POST['metodo_pago']) ? $conn->real_escape_string($_POST['metodo_pago']) : 'Efectivo';
     $nota_pago = isset($_POST['nota_pago']) ? $conn->real_escape_string($_POST['nota_pago']) : '';
     $id_usuario = (int)$_SESSION['usuario_id'];
+    $token_comprobante = bin2hex(random_bytes(32));
 
     if($id_reserva > 0 && $id_usuario > 0) {
-        $insert = $conn->prepare("INSERT INTO pagos (id_reserva, id_usuario, monto, fecha_pago, metodo, nota) VALUES (?, ?, ?, ?, ?, ?)");
-        $insert->bind_param('iddsss', $id_reserva, $id_usuario, $monto_pago, $fecha_pago, $metodo_pago, $nota_pago);
+        $insert = $conn->prepare("INSERT INTO pagos (id_reserva, id_usuario, monto, fecha_pago, metodo, nota, token_comprobante) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $insert->bind_param('iidssss', $id_reserva, $id_usuario, $monto_pago, $fecha_pago, $metodo_pago, $nota_pago, $token_comprobante);
         if($insert->execute()) {
             $payment_id = $insert->insert_id;
             $conn->query("UPDATE reservas SET estado = 'completada' WHERE id_reserva = $id_reserva");
@@ -181,15 +186,46 @@ if($id_reserva <= 0) {
         <link rel="stylesheet" href="./css/style.css">
     </head>
     <body>
-        <main class="container-fluid py-4">
-            <div class="page-header">
-                <h3><i class="fas fa-search"></i> BUSCAR PAGO DE PACIENTE</h3>
-                <p>Busque por nombre, apellido, cédula o número de factura para consultar el estado del pago.</p>
-            </div>
-            <div class="container-fluid mb-3">
-                <a href="reservas.php" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver a Reservas</a>
-            </div>
-            <div class="container-fluid">
+        <main class="full-box main-container">
+            <section class="nav-lateral">
+                <div class="nav-lateral-bg show-nav-lateral"></div>
+                <div class="nav-lateral-content">
+                    <figure class="nav-lateral-avatar">
+                        <i class="far fa-times-circle show-nav-lateral" title="Cerrar menú"></i>
+                        <img src="./aurea.jpg" alt="Logo de AureaMed">
+                        <figcaption>
+                            <?php echo htmlspecialchars($nombre_usuario); ?><br>
+                            <small><?php echo htmlspecialchars($rol_usuario); ?> &bull; AureaMed</small>
+                        </figcaption>
+                    </figure>
+                    <div class="nav-lateral-bar"></div>
+                    <nav class="nav-lateral-menu" aria-label="Menú principal"></nav>
+                </div>
+            </section>
+            <section class="page-content">
+                <nav class="navbar-info">
+                    <div class="navbar-info-left">
+                        <button type="button" class="show-nav-lateral btn-icon" title="Ocultar/Mostrar Menú" aria-label="Ocultar o mostrar menú">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <h4 class="navbar-brand-title d-none d-sm-flex">
+                            <i class="fas fa-file-invoice-dollar text-primary"></i> Ventas y Leyes
+                        </h4>
+                    </div>
+                    <div class="navbar-info-right">
+                        <a href="perfil.php" title="Mi perfil"><i class="fas fa-user-circle"></i> <span class="d-none d-md-inline"><?php echo htmlspecialchars($nombre_usuario); ?></span></a>
+                        <a href="logout.php" class="btn-exit-system" title="Cerrar sesión"><i class="fas fa-power-off"></i> <span class="d-none d-md-inline">Salir</span></a>
+                    </div>
+                </nav>
+
+                <div class="page-header">
+                    <h3><i class="fas fa-search"></i> BUSCAR PAGO DE PACIENTE</h3>
+                    <p>Busque por nombre, apellido, cédula o número de factura para consultar el estado del pago.</p>
+                </div>
+                <div class="container-fluid mb-3">
+                    <a href="reservas.php" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver a Reservas</a>
+                </div>
+                <div class="container-fluid">
                 <div class="table-container mb-3">
                     <form method="GET" action="pagos_servicio.php" class="p-3">
                         <div class="form-row align-items-end">
@@ -274,8 +310,13 @@ if($id_reserva <= 0) {
                         </table>
                     </div>
                 </div>
-            </div>
+            </section>
         </main>
+        <script src="./js/jquery-3.4.1.min.js"></script>
+        <script src="./js/popper.min.js"></script>
+        <script src="./js/bootstrap.min.js"></script>
+        <script src="./js/sweetalert2.min.js"></script>
+        <script src="./js/main.js"></script>
     </body>
     </html>
     <?php
@@ -446,7 +487,7 @@ if($historyResult) {
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-dollar-sign text-primary"></i> Cobro de Consulta / Tratamiento
+                        <i class="fas fa-dollar-sign text-primary"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">
@@ -467,7 +508,8 @@ if($historyResult) {
             <?php if($payment_saved): ?>
                 <div class="container-fluid btn-print-hide">
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <strong>✅ ¡Pago Registrado Exitosamente!</strong> Se ha generado el comprobante de atención médica.
+                        <strong>Pago registrado.</strong> Ya puede abrir, imprimir o compartir el comprobante con el paciente.
+                        <a class="alert-link ml-2" href="factura_ver.php?token=<?php echo urlencode($payment_data['token_comprobante']); ?>" target="_blank" rel="noopener">Abrir comprobante del paciente</a>
                         <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
                     </div>
                 </div>

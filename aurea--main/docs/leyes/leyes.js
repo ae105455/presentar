@@ -7,6 +7,10 @@
     const nextBtn = document.getElementById('next');
     const playPauseBtn = document.getElementById('playPause');
     const indicador = document.getElementById('indicador');
+    if (!carousel || !stage || !prevBtn || !nextBtn || !playPauseBtn || !indicador || !document.getElementById('moldeModal')) {
+        return;
+    }
+
     const moldeModal = new bootstrap.Modal(document.getElementById('moldeModal'));
     const modalBody = document.getElementById('modalBody');
     const modalTitle = document.getElementById('moldeModalLabel');
@@ -333,6 +337,45 @@
     setupCarousel();
     startAuto();
 })();
+
+(() => {
+    const modalElement = document.getElementById('moldeModal');
+    const modalTitle = document.getElementById('moldeModalLabel');
+    const modalBody = document.getElementById('modalBody');
+    const modal = new bootstrap.Modal(modalElement);
+
+    document.querySelectorAll('.molde-card').forEach(card => {
+        const title = card.querySelector('h3');
+        const image = card.querySelector('img');
+        const badge = card.querySelector('.tipo-badge');
+        const description = card.querySelector('.descripcion');
+        if (!title || !image || !description) return;
+
+        const openDetails = () => {
+            modalTitle.textContent = title.textContent.trim();
+            const detailImage = document.createElement('img');
+            detailImage.src = image.src;
+            detailImage.alt = image.alt;
+            detailImage.className = 'img-fluid d-block mx-auto mb-3';
+            const detailText = document.createElement('p');
+            detailText.textContent = description.textContent.trim();
+            modalBody.replaceChildren(detailImage, ...(badge ? [badge.cloneNode(true)] : []), detailText);
+            modal.show();
+        };
+
+        card.setAttribute('role', 'button');
+        card.tabIndex = 0;
+        card.setAttribute('aria-label', `Ver detalles de ${title.textContent.trim()}`);
+        card.addEventListener('click', openDetails);
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openDetails();
+            }
+        });
+    });
+})();
+
   // ================= ESTADÍSTICAS ANIMADO =================
 const statItems = document.querySelectorAll('.stat-item');
 
@@ -408,4 +451,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-

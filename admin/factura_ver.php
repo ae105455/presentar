@@ -1,6 +1,8 @@
 <?php
 session_start();
-if(!isset($_SESSION['usuario_id'])) {
+$token_comprobante = isset($_GET['token']) ? trim($_GET['token']) : '';
+$es_comprobante_publico = preg_match('/\A[a-f0-9]{64}\z/i', $token_comprobante) === 1;
+if(!$es_comprobante_publico && !isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
     exit();
 }
@@ -9,14 +11,23 @@ $conn = new mysqli('localhost', 'root', '', 'aureamed');
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+require_once __DIR__ . '/comprobante_helpers.php';
+if (!$es_comprobante_publico && !asegurarTokensComprobante($conn)) {
+    http_response_code(503);
+    exit('No se pudo preparar el comprobante.');
+}
+if ($es_comprobante_publico) {
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: private, no-store');
+}
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
 
-$id_pago = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id_pago = $es_comprobante_publico ? 0 : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
 $auto_print = isset($_GET['print']) && $_GET['print'] == '1';
 
-if($id_pago <= 0) {
+if(!$es_comprobante_publico && $id_pago <= 0) {
     header("Location: facturas.php");
     exit();
 }
@@ -33,10 +44,14 @@ $sql = "SELECT p.*,
         JOIN pacientes x ON r.id_paciente = x.id_paciente
         JOIN servicios s ON r.id_servicio = s.id_servicio
         JOIN usuarios u ON p.id_usuario = u.id_usuario
-        WHERE p.id_pago = $id_pago";
+        WHERE " . ($es_comprobante_publico ? "p.token_comprobante = '" . $conn->real_escape_string($token_comprobante) . "'" : "p.id_pago = $id_pago");
 
 $result = $conn->query($sql);
 if(!$result || $result->num_rows == 0) {
+    if ($es_comprobante_publico) {
+        http_response_code(404);
+        exit('Comprobante no encontrado.');
+    }
     header("Location: facturas.php");
     exit();
 }
@@ -51,17 +66,143 @@ $empresa_email = $empresa['email'] ?? 'info@aureamed.com';
 $empresa_direccion = $empresa['direccion'] ?? 'Guayaquil, Ecuador';
 $empresa_web = $empresa['web'] ?? 'www.aureamed.com';
 
-// Descuento e IVA
-$subtotal = $pago['monto'] / 1.15; // si incluye IVA
-$iva = $pago['monto'] - $subtotal;
-$descuento = 0;
+if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
+    require_once __DIR__ . '/REPPDF/libs/fpdf/fpdf.php';
+
+    $toPdfText = static function($text) {
+        $converted = iconv('UTF-8', 'ISO-8859-1//TRANSLIT', (string)$text);
+        return $converted === false ? (string)$text : $converted;
+    };
+
+    $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+    if (!preg_match('/\A[a-zA-Z0-9.\-:\[\]]+\z/', $host)) {
+        $host = 'localhost';
+    }
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $basePath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+    $receiptUrl = $scheme . '://' . $host . $basePath . '/factura_ver.php?token=' . rawurlencode($pago['token_comprobante']);
+    $qrFile = tempnam(sys_get_temp_dir(), 'aureamed_receipt_');
+    if ($qrFile === false) {
+        http_response_code(500);
+        exit('No se pudo preparar el código QR del comprobante.');
+    }
+
+    $pdf = new FPDF('P', 'mm', 'A4');
+    $pdf->SetMargins(17, 15, 17);
+    $pdf->SetAutoPageBreak(true, 15);
+    $pdf->AddPage();
+    $pdf->SetDrawColor(225, 215, 210);
+    $pdf->SetFillColor(251, 240, 229);
+    $pdf->Image(__DIR__ . '/aurea.jpg', 17, 17, 55);
+
+    $pdf->SetTextColor(125, 42, 42);
+    $pdf->SetFont('Arial', 'B', 16);
+    $pdf->SetXY(105, 18);
+    $pdf->Cell(88, 8, $toPdfText('COMPROBANTE DE PAGO'), 0, 1, 'R');
+    $pdf->SetFont('Arial', 'B', 12);
+    $pdf->SetX(105);
+    $pdf->Cell(88, 7, $toPdfText($pago['num_factura']), 0, 1, 'R');
+    $pdf->SetTextColor(71, 85, 105);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetX(105);
+    $pdf->Cell(88, 6, $toPdfText('Emitido: ' . date('d/m/Y H:i', strtotime($pago['fecha_registro']))), 0, 1, 'R');
+    $pdf->SetTextColor(125, 42, 42);
+    $pdf->SetFont('Arial', 'B', 9);
+    $pdf->SetX(105);
+    $pdf->Cell(88, 7, $toPdfText('PAGO CONFIRMADO'), 0, 1, 'R');
+    $pdf->SetDrawColor(243, 155, 45);
+    $pdf->SetLineWidth(1.2);
+    $pdf->Line(17, 52, 193, 52);
+
+    $pdf->SetDrawColor(225, 215, 210);
+    $pdf->SetLineWidth(0.3);
+    $pdf->SetFillColor(251, 240, 229);
+    $pdf->Rect(17, 61, 85, 39, 'DF');
+    $pdf->Rect(108, 61, 85, 39, 'DF');
+    $pdf->SetTextColor(125, 42, 42);
+    $pdf->SetFont('Arial', 'B', 9);
+    $pdf->SetXY(22, 65);
+    $pdf->Cell(75, 6, $toPdfText('CENTRO DE ATENCION'), 0, 1);
+    $pdf->SetTextColor(51, 65, 85);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetX(22);
+    $pdf->MultiCell(75, 5, $toPdfText($empresa_nombre . "\n" . $empresa_ruc . "\n" . $empresa_direccion . "\n" . $empresa_telefono));
+    $pdf->SetTextColor(125, 42, 42);
+    $pdf->SetFont('Arial', 'B', 9);
+    $pdf->SetXY(113, 65);
+    $pdf->Cell(75, 6, $toPdfText('PACIENTE'), 0, 1);
+    $pdf->SetTextColor(51, 65, 85);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetX(113);
+    $pdf->MultiCell(75, 5, $toPdfText($pago['paciente_apellido'] . ' ' . $pago['paciente_nombre'] . "\nCedula: " . $pago['cedula'] . "\n" . ($pago['telefono'] ?: '')));
+
+    $pdf->SetFillColor(125, 42, 42);
+    $pdf->SetTextColor(255, 255, 255);
+    $pdf->SetFont('Arial', 'B', 9);
+    $pdf->SetXY(17, 110);
+    $pdf->Cell(82, 9, $toPdfText('SERVICIO'), 1, 0, 'L', true);
+    $pdf->Cell(47, 9, $toPdfText('FECHA'), 1, 0, 'C', true);
+    $pdf->Cell(47, 9, $toPdfText('IMPORTE'), 1, 1, 'R', true);
+    $pdf->SetTextColor(51, 65, 85);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetX(17);
+    $pdf->Cell(82, 12, $toPdfText($pago['nombre_servicio']), 1, 0, 'L');
+    $pdf->Cell(47, 12, date('d/m/Y', strtotime($pago['fecha_reserva'])), 1, 0, 'C');
+    $pdf->Cell(47, 12, $toPdfText('Bs. ' . number_format((float)$pago['monto'], 2)), 1, 1, 'R');
+
+    $pdf->SetFillColor(125, 42, 42);
+    $pdf->SetTextColor(255, 255, 255);
+    $pdf->SetFont('Arial', 'B', 12);
+    $pdf->SetXY(105, 135);
+    $pdf->Cell(88, 13, $toPdfText('TOTAL PAGADO     Bs. ' . number_format((float)$pago['monto'], 2)), 0, 1, 'R', true);
+
+    $pdf->SetTextColor(51, 65, 85);
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->SetXY(17, 160);
+    $pdf->Cell(176, 7, $toPdfText('Metodo de pago: ' . $pago['metodo']), 0, 1);
+    $pdf->Cell(176, 7, $toPdfText('Atendido por: ' . $pago['cajero_nombre']), 0, 1);
+    if (!empty($pago['nota'])) {
+        $pdf->SetFont('Arial', 'B', 9);
+        $pdf->Cell(176, 7, $toPdfText('Observaciones'), 0, 1);
+        $pdf->SetFont('Arial', '', 9);
+        $pdf->MultiCell(176, 5, $toPdfText($pago['nota']));
+    }
+
+    $pdf->SetDrawColor(225, 215, 210);
+    $pdf->Line(17, 225, 193, 225);
+    $pdf->SetTextColor(125, 42, 42);
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->SetXY(17, 233);
+    $pdf->Cell(125, 7, $toPdfText('Gracias por elegir ' . $empresa_nombre), 0, 1);
+    $pdf->SetTextColor(71, 85, 105);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetX(17);
+    $pdf->MultiCell(125, 5, $toPdfText('Este comprobante confirma su pago. Escanee el QR para consultarlo nuevamente.'));
+
+    $qrPng = generarCodigoQrPng($receiptUrl, 'M', 2, 4);
+    if (file_put_contents($qrFile, $qrPng) === false) {
+        unlink($qrFile);
+        http_response_code(500);
+        exit('No se pudo preparar el código QR del comprobante.');
+    }
+    try {
+        $pdf->Image($qrFile, 158, 232, 30, 30, 'PNG');
+    } finally {
+        unlink($qrFile);
+    }
+
+    $pdf->Output('D', 'Comprobante_' . $pago['num_factura'] . '.pdf');
+    $conn->close();
+    exit();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AureaMed | Factura <?php echo htmlspecialchars($pago['num_factura']); ?></title>
+    <title>AureaMed | Comprobante <?php echo htmlspecialchars($pago['num_factura']); ?></title>
     <link rel="stylesheet" href="./css/normalize.css">
     <link rel="stylesheet" href="./css/bootstrap.min.css">
     <link rel="stylesheet" href="./css/all.css">
@@ -300,6 +441,218 @@ $descuento = 0;
             color: #cbd5e1;
             font-size: 28px;
         }
+        .invoice-qr img {
+            display: block;
+            width: 88px;
+            height: 88px;
+            margin: 0 auto;
+            background: #fff;
+        }
+        body.public-receipt .nav-lateral,
+        body.public-receipt .navbar-info {
+            display: none !important;
+        }
+        body.public-receipt .page-content {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 18px !important;
+        }
+
+        body {
+            background: #f4f7fa;
+            color: #334155;
+        }
+        .main-container {
+            display: block;
+            min-height: 100vh;
+        }
+        .nav-lateral,
+        .navbar-info {
+            display: none !important;
+        }
+        .page-content {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .invoice-page-shell {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 28px 20px 48px;
+        }
+        .invoice-card {
+            border: 1px solid #dbe4ed;
+            border-radius: 8px;
+            box-shadow: 0 8px 26px rgba(27, 52, 40, 0.07);
+        }
+        .invoice-header {
+            align-items: center;
+            background: #fff;
+            border-top: 5px solid #f39b2d;
+            border-bottom: 1px solid #dbe4ed;
+            color: #334155;
+            padding: 26px 32px;
+        }
+        .invoice-brand-name,
+        .invoice-title-block h2 {
+            color: #7d2a2a;
+        }
+        .invoice-brand-name {
+            margin-bottom: 8px;
+        }
+        .invoice-logo {
+            display: block;
+            width: 250px;
+            max-width: 100%;
+            height: 74px;
+            object-fit: cover;
+            object-position: center 68%;
+            transform: translateY(8px);
+        }
+        .invoice-brand-sub,
+        .invoice-brand-contact,
+        .invoice-date-info {
+            color: #64748b;
+            letter-spacing: 0;
+        }
+        .invoice-title-block h2 {
+            font-size: 22px;
+            letter-spacing: 0;
+        }
+        .invoice-num {
+            color: #7d2a2a;
+            border-bottom: 2px solid #f39b2d;
+            display: inline-block;
+            padding-bottom: 3px;
+        }
+        .invoice-body {
+            padding: 26px 32px;
+        }
+        .parties-row {
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+        .party-box {
+            background: #fff;
+            border: 1px solid #dbe4ed;
+            border-radius: 6px;
+        }
+        .party-box-label {
+            color: #7d2a2a;
+            letter-spacing: 0;
+        }
+        .invoice-table {
+            border: 1px solid #dbe4ed;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .invoice-table thead th {
+            background: #fbf0e5;
+            color: #7d2a2a;
+            letter-spacing: 0;
+        }
+        .invoice-table thead th:first-child,
+        .invoice-table thead th:last-child {
+            border-radius: 0;
+        }
+        .totals-table {
+            min-width: min(100%, 300px);
+            border-radius: 6px;
+        }
+        .totals-row.total-final {
+            background: #7d2a2a;
+            border-left: 5px solid #f39b2d;
+        }
+        .totals-row.total-final .amount {
+            color: #fff;
+        }
+        .info-badge-box {
+            background: #f7fafc;
+            border: 1px solid #dbe4ed;
+            border-radius: 6px;
+        }
+        .invoice-footer {
+            background: #f8fafc;
+            border-top: 1px solid #dbe4ed;
+            padding: 18px 32px;
+        }
+        .invoice-footer-note {
+            color: #64748b;
+            line-height: 1.65;
+        }
+        .invoice-qr img {
+            width: 96px;
+            height: 96px;
+            padding: 4px;
+            border: 1px solid #dbe4ed;
+            border-radius: 4px;
+        }
+        .action-buttons {
+            justify-content: space-between;
+            align-items: center;
+            max-width: 760px;
+            margin: 0 auto 14px;
+        }
+        .btn-back,
+        .btn-print-main,
+        .btn-pdf {
+            border-radius: 6px;
+            text-decoration: none !important;
+        }
+        .btn-pdf {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #f39b2d;
+            border-bottom: 3px solid #d87c16;
+            color: #342d2c !important;
+            font-weight: 700;
+            font-size: 13.5px;
+        }
+        .btn-pdf:hover {
+            background: #e88b1d;
+            color: #342d2c !important;
+        }
+        .btn-print-main {
+            background: #7d2a2a;
+            border-bottom: 3px solid #f39b2d;
+        }
+        .btn-print-main:hover {
+            background: #662222;
+        }
+        @media (max-width: 620px) {
+            .invoice-page-shell {
+                padding: 14px 12px 28px;
+            }
+            .invoice-header,
+            .invoice-body {
+                padding: 20px;
+            }
+            .invoice-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .invoice-logo {
+                transform: none;
+            }
+            .invoice-title-block,
+            .invoice-date-info {
+                text-align: left;
+            }
+            .parties-row,
+            .payment-info-row {
+                grid-template-columns: 1fr;
+            }
+            .invoice-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .invoice-footer {
+                padding: 18px 20px;
+            }
+        }
 
         /* Botones de acción en pantalla */
         .action-buttons {
@@ -328,7 +681,7 @@ $descuento = 0;
             align-items: center;
             gap: 8px;
             padding: 10px 22px;
-            background: #004b87;
+            background: #7d2a2a;
             color: #fff !important;
             border-radius: 10px;
             font-weight: 700;
@@ -339,8 +692,8 @@ $descuento = 0;
             cursor: pointer;
         }
         .btn-print-main:hover {
-            background: #0066b2;
-            box-shadow: 0 4px 14px rgba(0,75,135,0.3);
+            background: #662222;
+            box-shadow: 0 4px 14px rgba(125,42,42,0.22);
             transform: translateY(-1px);
             color: #fff !important;
         }
@@ -363,19 +716,34 @@ $descuento = 0;
 
         /* ── IMPRESIÓN ── */
         @media print {
+            @page { size: A4 portrait; margin: 10mm; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             body { background: #fff !important; }
+            body * { visibility: visible !important; }
             .nav-lateral, .navbar-info, .page-header, .page-nav-tabs, .action-buttons, .no-print {
                 display: none !important;
             }
+            .main-container,
             .page-content {
-                margin-left: 0 !important;
-                width: 100% !important;
+                display: block !important;
+                width: 100%;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .invoice-page-shell {
+                position: static;
+                max-width: none;
+                width: 100%;
+                margin: 0;
+                padding: 0 !important;
+            }
+            .invoice-page-shell {
                 padding: 0 !important;
             }
             .factura-wrapper {
                 padding: 0 !important;
-                max-width: 100% !important;
+                max-width: none !important;
             }
             .invoice-card {
                 box-shadow: none !important;
@@ -388,7 +756,7 @@ $descuento = 0;
         }
     </style>
 </head>
-<body>
+<body class="<?php echo $es_comprobante_publico ? 'public-receipt' : ''; ?>">
 <main class="full-box main-container">
     <!-- Sidebar -->
     <section class="nav-lateral">
@@ -471,7 +839,7 @@ $descuento = 0;
                     <i class="fas fa-bars"></i>
                 </button>
                 <h4 class="navbar-brand-title d-none d-sm-flex">
-                    <i class="fas fa-file-invoice-dollar text-primary"></i> Ver Factura / Comprobante
+                    <i class="fas fa-file-invoice-dollar text-primary"></i> Ventas y Leyes
                 </h4>
             </div>
             <div class="navbar-info-right">
@@ -480,13 +848,17 @@ $descuento = 0;
             </div>
         </nav>
 
-        <div style="padding: 24px 28px;">
+        <div class="invoice-page-shell">
 
             <!-- Botones de acción -->
             <div class="action-buttons">
+                <?php if(!$es_comprobante_publico): ?>
                 <a href="facturas.php" class="btn-back"><i class="fas fa-arrow-left"></i> Volver a Facturas</a>
-                <button onclick="window.print()" class="btn-print-main"><i class="fas fa-print"></i> Imprimir Factura</button>
-                <a href="pagos_servicio.php?id_reserva=<?php echo $pago['id_reserva']; ?>" class="btn-download" style="background:#004b87;"><i class="fas fa-file-alt"></i> Ver Reserva Original</a>
+                <?php endif; ?>
+                <a class="btn-pdf" href="factura_ver.php<?php echo $es_comprobante_publico ? '?token=' . urlencode($token_comprobante) . '&pdf=1' : '?id=' . (int)$id_pago . '&pdf=1'; ?>">
+                    <i class="fas fa-file-pdf"></i> Descargar PDF
+                </a>
+                <button onclick="window.print()" class="btn-print-main"><i class="fas fa-print"></i> Imprimir o guardar comprobante</button>
             </div>
 
             <!-- Factura -->
@@ -496,10 +868,9 @@ $descuento = 0;
                     <div class="invoice-header">
                         <div>
                             <div class="invoice-brand-name">
-                                <i class="fas fa-heartbeat" style="color:#f59e0b;margin-right:8px;font-size:20px;"></i>
-                                <?php echo htmlspecialchars($empresa_nombre); ?>
+                                <img class="invoice-logo" src="./aurea.jpg" alt="Logo de AureaMed">
                             </div>
-                            <div class="invoice-brand-sub">Centro Auditivo &amp; Audiología Clínica</div>
+                            <div class="invoice-brand-sub"><?php echo htmlspecialchars($empresa_nombre); ?></div>
                             <div class="invoice-brand-contact">
                                 <i class="fas fa-map-marker-alt" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_direccion); ?><br>
                                 <i class="fas fa-phone" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_telefono); ?><br>
@@ -507,13 +878,12 @@ $descuento = 0;
                             </div>
                         </div>
                         <div class="invoice-title-block">
-                            <h2>FACTURA</h2>
+                            <h2>COMPROBANTE DE PAGO</h2>
                             <div class="invoice-num"><?php echo htmlspecialchars($pago['num_factura']); ?></div>
                             <div class="invoice-date-info">
-                                <strong>Fecha de emisión:</strong><br>
-                                <?php echo date('d/m/Y', strtotime($pago['fecha_pago'])); ?><br>
-                                <strong>Hora:</strong> <?php echo date('H:i', strtotime($pago['fecha_registro'])); ?><br>
-                                <span style="background:rgba(245,158,11,0.25);color:#fde68a;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;margin-top:6px;display:inline-block;">✓ PAGADO</span>
+                                <strong>Emitido:</strong> <?php echo date('d/m/Y', strtotime($pago['fecha_pago'])); ?>
+                                <span style="margin-left:8px;"> <?php echo date('H:i', strtotime($pago['fecha_registro'])); ?></span><br>
+                                <span style="background:#fbf0e5;color:#7d2a2a;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;margin-top:8px;display:inline-block;border-left:3px solid #f39b2d;">PAGO CONFIRMADO</span>
                             </div>
                         </div>
                     </div>
@@ -524,7 +894,7 @@ $descuento = 0;
                         <!-- Emisor / Receptor -->
                         <div class="parties-row">
                             <div class="party-box">
-                                <div class="party-box-label"><i class="fas fa-building"></i> &nbsp; Emitido por</div>
+                                <div class="party-box-label"><i class="fas fa-building"></i> &nbsp; Centro de atención</div>
                                 <div class="party-box-name"><?php echo htmlspecialchars($empresa_nombre); ?></div>
                                 <div class="party-box-detail">
                                     <?php echo htmlspecialchars($empresa_ruc); ?><br>
@@ -533,7 +903,7 @@ $descuento = 0;
                                 </div>
                             </div>
                             <div class="party-box">
-                                <div class="party-box-label"><i class="fas fa-user"></i> &nbsp; Facturado a</div>
+                                <div class="party-box-label"><i class="fas fa-user"></i> &nbsp; Paciente</div>
                                 <div class="party-box-name"><?php echo htmlspecialchars($pago['paciente_apellido'] . ' ' . $pago['paciente_nombre']); ?></div>
                                 <div class="party-box-detail">
                                     <strong>Cédula:</strong> <?php echo htmlspecialchars($pago['cedula']); ?><br>
@@ -547,28 +917,22 @@ $descuento = 0;
                         <table class="invoice-table">
                             <thead>
                                 <tr>
-                                    <th style="width:50px;">#</th>
-                                    <th>Descripción del Servicio</th>
-                                    <th style="text-align:center;">Fecha de Cita</th>
-                                    <th style="text-align:center;">Duración</th>
-                                    <th style="text-align:right;">Precio</th>
+                                    <th>Servicio</th>
+                                    <th style="text-align:center;">Fecha de atención</th>
+                                    <th style="text-align:right;">Importe pagado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style="color:#94a3b8;font-weight:700;">01</td>
                                     <td>
                                         <strong style="color:#0f172a;"><?php echo htmlspecialchars($pago['nombre_servicio']); ?></strong><br>
-                                        <small style="color:#94a3b8;">Servicio Audiológico - AureaMed</small>
+                                        <small style="color:#64748b;">Servicio de AureaMed</small>
                                     </td>
                                     <td style="text-align:center;color:#475569;">
                                         <?php echo date('d/m/Y', strtotime($pago['fecha_reserva'])); ?>
                                         <?php if($pago['hora_reserva']): ?><br><small><?php echo date('H:i', strtotime($pago['hora_reserva'])); ?></small><?php endif; ?>
                                     </td>
-                                    <td style="text-align:center;color:#475569;">
-                                        <?php echo $pago['duracion_minutos'] ? $pago['duracion_minutos'].' min' : '—'; ?>
-                                    </td>
-                                    <td> Bs <?php echo number_format($pago['precio_servicio'], 2); ?></td>
+                                    <td>Bs. <?php echo number_format($pago['monto'], 2); ?></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -576,21 +940,9 @@ $descuento = 0;
                         <!-- Totales -->
                         <div class="totals-block">
                             <div class="totals-table">
-                                <div class="totals-row">
-                                    <span class="label">Subtotal (sin IVA)</span>
-                                    <span class="amount"> Bs <?php echo number_format($pago['monto'] / 1.15, 2); ?></span>
-                                </div>
-                                <div class="totals-row">
-                                    <span class="label">IVA (15%)</span>
-                                    <span class="amount"> Bs <?php echo number_format($pago['monto'] - ($pago['monto'] / 1.15), 2); ?></span>
-                                </div>
-                                <div class="totals-row">
-                                    <span class="label">Descuento</span>
-                                    <span class="amount" style="color:#10b981;">Bs 0.00</span>
-                                </div>
                                 <div class="totals-row total-final">
                                     <span class="label">TOTAL PAGADO</span>
-                                    <span class="amount"> Bs <?php echo number_format($pago['monto'], 2); ?></span>
+                                    <span class="amount">Bs. <?php echo number_format($pago['monto'], 2); ?></span>
                                 </div>
                             </div>
                         </div>
@@ -628,8 +980,8 @@ $descuento = 0;
 
                         <!-- Cajero -->
                         <div style="font-size:12.5px;color:#94a3b8;text-align:right;margin-bottom:8px;">
-                            <i class="fas fa-user-tie"></i> Atendido por: <strong style="color:#475569;"><?php echo htmlspecialchars($pago['cajero_nombre']); ?></strong>
-                            &nbsp;|&nbsp; Nº Reserva: <strong style="color:#475569;">#<?php echo $pago['id_reserva']; ?></strong>
+                            Atendido por <strong style="color:#475569;"><?php echo htmlspecialchars($pago['cajero_nombre']); ?></strong>
+                            <span class="no-print">&nbsp;|&nbsp; Reserva #<?php echo $pago['id_reserva']; ?></span>
                         </div>
 
                     </div><!-- /invoice-body -->
@@ -637,13 +989,13 @@ $descuento = 0;
                     <!-- Pie de factura -->
                     <div class="invoice-footer">
                         <div class="invoice-footer-note">
-                            <strong style="color:#64748b;">Gracias por su confianza en <?php echo htmlspecialchars($empresa_nombre); ?>.</strong><br>
-                            Este documento es su comprobante oficial de pago. Consérvelo para cualquier reclamo o garantía.
-                            Para consultas contáctenos al <?php echo htmlspecialchars($empresa_telefono); ?>.
+                            <strong style="color:#7d2a2a;">Gracias por elegir <?php echo htmlspecialchars($empresa_nombre); ?>.</strong><br>
+                            Este comprobante confirma su pago. Guárdelo o escanee el QR para consultarlo nuevamente.
+                            Consultas: <?php echo htmlspecialchars($empresa_telefono); ?>.
                         </div>
-                        <div style="text-align:center;">
-                            <div class="qr-placeholder"><i class="fas fa-qrcode"></i></div>
-                            <div style="font-size:10px;color:#cbd5e1;margin-top:4px;">Verificar</div>
+                        <div class="invoice-qr" style="text-align:center;">
+                            <img src="qr_comprobante.php?token=<?php echo urlencode($pago['token_comprobante']); ?>" alt="QR para abrir este comprobante">
+                            <div style="font-size:10px;color:#7d2a2a;margin-top:5px;">Escanee para consultar</div>
                         </div>
                     </div>
 
@@ -654,9 +1006,10 @@ $descuento = 0;
     </section>
 </main>
 
-<script src="./js/jquery.min.js"></script>
-<script src="./js/bootstrap.bundle.min.js"></script>
-<script src="./js/custom.js"></script>
+<script src="./js/jquery-3.4.1.min.js"></script>
+<script src="./js/popper.min.js"></script>
+<script src="./js/bootstrap.min.js"></script>
+<script src="./js/main.js"></script>
 <?php if($auto_print): ?>
 <script>window.addEventListener('load', function() { setTimeout(function(){ window.print(); }, 800); });</script>
 <?php endif; ?>

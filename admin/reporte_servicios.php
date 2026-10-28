@@ -132,7 +132,7 @@ if($stats_result && $stats_result->num_rows > 0) {
                         <i class="fas fa-bars"></i>
                     </button>
                     <h4 class="navbar-brand-title d-none d-sm-flex">
-                        <i class="fas fa-chart-pie text-primary"></i> Demanda de Servicios
+                        <i class="fas fa-chart-pie text-primary"></i> Ventas y Leyes
                     </h4>
                 </div>
                 <div class="navbar-info-right">
