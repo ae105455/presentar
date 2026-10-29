@@ -27,10 +27,13 @@ STATIC_EXTENSIONS = {
 
 def prepare_html(source: Path, destination: Path) -> None:
     raw_content = source.read_bytes()
-    try:
-        content = raw_content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        content = raw_content.decode("cp1252")
+    if raw_content.startswith((b"\xff\xfe", b"\xfe\xff")):
+        content = raw_content.decode("utf-16")
+    else:
+        try:
+            content = raw_content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            content = raw_content.decode("cp1252")
     content = re.sub(
         r'<link\b[^>]*href=["\']guardar_comentario\.php["\'][^>]*>\s*',
         "",

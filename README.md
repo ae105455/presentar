@@ -104,7 +104,7 @@ Para verificar la BD está correcta:
 
 ### Sitio público de demostración en GitHub Pages
 
-El flujo publica el sitio informativo como una versión estática en `https://ae105455.github.io/presentar/` después de habilitar GitHub Pages con **Settings → Pages → Build and deployment → Source: GitHub Actions**. GitHub Pages no ejecuta PHP ni incluye el panel administrativo. La reserva de citas se reemplaza por un mensaje de demostración con contacto por WhatsApp; el administrador y las operaciones con base de datos requieren un hosting PHP/MySQL.
+El flujo publica el sitio informativo como una versión estática en `https://ae105455.github.io/presentar/` después de habilitar GitHub Pages con **Settings → Pages → Build and deployment → Source: GitHub Actions**. La página de productos/ventas es solo un catálogo público. GitHub Pages no ejecuta PHP ni incluye el panel administrativo, el registro de ventas ni las operaciones con base de datos. La reserva de citas se reemplaza por un mensaje de demostración con contacto por WhatsApp; esas funciones requieren un hosting PHP/MySQL.
 
 ### URL de los códigos QR de pacientes
 
