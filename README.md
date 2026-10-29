@@ -102,6 +102,10 @@ Para verificar la BD está correcta:
 
 ## ⚙️ CONFIGURACIÓN DE LA APLICACIÓN
 
+### Sitio público de demostración en GitHub Pages
+
+El sitio informativo se publica como una versión estática en `https://ae105455.github.io/presentar/`. GitHub Pages no ejecuta PHP ni incluye el panel administrativo. La reserva de citas se reemplaza por un mensaje de demostración con contacto por WhatsApp; el administrador y las operaciones con base de datos requieren un hosting PHP/MySQL.
+
 ### URL de los códigos QR de pacientes
 
 Al generar un QR, la aplicación usa automáticamente el dominio y la ruta con que se abrió. Para un servidor con una dirección pública distinta (por ejemplo, detrás de un proxy), se puede definir la variable de entorno `AUREAMED_QR_BASE_URL` con la URL completa de la carpeta `admin`, sin `/` al final:

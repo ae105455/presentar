@@ -2,22 +2,27 @@
 // EMAILJS
 // =============================
 (function() {
-    emailjs.init("contacto@aureamed.com.bo");
+    if (typeof emailjs !== 'undefined') {
+        emailjs.init("contacto@aureamed.com.bo");
+    }
 })();
 
-document.getElementById('form-contacto').addEventListener('submit', function(event) {
-    event.preventDefault();
+const formContacto = document.getElementById('form-contacto');
+if (formContacto && typeof emailjs !== 'undefined') {
+    formContacto.addEventListener('submit', function(event) {
+        event.preventDefault();
 
-    emailjs.send("contacto@aureamed.com.bo", "TU_TEMPLATE_ID", {
-      nombre: document.getElementById("nombre").value,
-      correo: document.getElementById("correo").value,
-      telefono: document.getElementById("telefono").value,
-      asunto: document.getElementById("asunto").value,
-      mensaje: document.getElementById("mensaje").value
-    })
-    .then(() => alert("Mensaje enviado con éxito"))
-    .catch(error => alert("Error al enviar: " + JSON.stringify(error)));
-});
+        emailjs.send("contacto@aureamed.com.bo", "TU_TEMPLATE_ID", {
+          nombre: document.getElementById("nombre").value,
+          correo: document.getElementById("correo").value,
+          telefono: document.getElementById("telefono").value,
+          asunto: document.getElementById("asunto").value,
+          mensaje: document.getElementById("mensaje").value
+        })
+        .then(() => alert("Mensaje enviado con éxito"))
+        .catch(error => alert("Error al enviar: " + JSON.stringify(error)));
+    });
+}
 
 // =======================================================
 // ANIMACIONES - SE EJECUTA AL CARGAR EL DOM
