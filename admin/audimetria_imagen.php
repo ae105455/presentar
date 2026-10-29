@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 session_start();
 if (!isset($_SESSION['usuario_id'])) {
     http_response_code(401);
@@ -11,7 +13,7 @@ if (!$id_imagen) {
     exit('Identificador de imagen no válido.');
 }
 
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
+$conn = aureamed_db_connect();
 if ($conn->connect_error) {
     http_response_code(500);
     exit('No se pudo acceder a la base de datos.');

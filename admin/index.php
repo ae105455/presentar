@@ -1,10 +1,8 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 session_start();
 
-$host = 'localhost';
-$user = 'root';
-$password = '';
-$database = 'aureamed';
 
 function sanitizar($dato) {
     $dato = trim($dato);
@@ -27,7 +25,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     if(empty($usuario) || empty($clave)) {
         $error = "Usuario y contraseña son obligatorios.";
     } else {
-        $conn = new mysqli($host, $user, $password, $database);
+        $conn = aureamed_db_connect();
         if ($conn->connect_error) {
             $error = "Error de conexión con la base de datos.";
         } else {

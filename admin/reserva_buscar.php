@@ -1,11 +1,13 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
     exit();
 }
 
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
+$conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }

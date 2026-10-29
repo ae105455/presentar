@@ -6,6 +6,7 @@ vendor/
 .env
 config.php
 *.env
+admin/db_config.local.php
 
 # Logs
 *.log
@@ -29,6 +30,5 @@ desktop.ini
 admin/uploads/audiometrias/*
 !admin/uploads/audiometrias/.htaccess
 admin/QR2026/qrs/paciente_*.svg
-
 
 

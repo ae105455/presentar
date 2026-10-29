@@ -1,11 +1,13 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 $token = isset($_GET['token']) ? trim($_GET['token']) : '';
 if (!preg_match('/\A[a-f0-9]{64}\z/i', $token)) {
     http_response_code(404);
     exit();
 }
 
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
+$conn = aureamed_db_connect();
 if ($conn->connect_error) {
     http_response_code(503);
     exit();

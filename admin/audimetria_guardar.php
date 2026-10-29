@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 session_start();
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
@@ -19,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST'
     volverConError('La sesión del formulario venció. Intente registrar nuevamente la audiometría.');
 }
 
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
+$conn = aureamed_db_connect();
 if ($conn->connect_error) {
     volverConError('No se pudo conectar con la base de datos.');
 }

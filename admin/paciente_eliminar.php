@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
@@ -12,7 +14,7 @@ if(!isset($_GET['id']) || empty($_GET['id'])) {
 
 $id_paciente = intval($_GET['id']);
 
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
+$conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }

@@ -112,6 +112,10 @@ AUREAMED_QR_BASE_URL=https://dominio-del-sitio/presentar/admin
 
 Si no se define, no se usa un dominio fijo: la URL se detecta desde la solicitud actual. En XAMPP, `localhost` solo funciona en la misma computadora; para escanear el QR desde un teléfono se necesita acceder al sitio por la IP de la computadora en la red local o por el dominio del servidor publicado. GitHub almacena el código, pero no ejecuta esta aplicación PHP.
 
+### Conexión de la base de datos en el hosting
+
+Las páginas administrativas comparten la conexión definida en `admin/db_connection.php`. En XAMPP se usa `admin/db_config.example.php`. En el hosting, crea `admin/db_config.local.php` a partir del ejemplo y coloca allí el hostname, usuario, contraseña, nombre de base de datos y puerto asignados por el proveedor. Ese archivo está excluido de Git para no publicar credenciales.
+
 ### Conexión a BD:
 ```php
 $host = 'localhost';      // Servidor XAMPP

@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/db_connection.php';
+
 session_start();
 $token_comprobante = isset($_GET['token']) ? trim($_GET['token']) : '';
 $es_comprobante_publico = preg_match('/\A[a-f0-9]{64}\z/i', $token_comprobante) === 1;
@@ -7,7 +9,7 @@ if(!$es_comprobante_publico && !isset($_SESSION['usuario_id'])) {
     exit();
 }
 
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
+$conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
