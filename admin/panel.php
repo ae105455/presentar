@@ -198,11 +198,6 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                                 <i class="fas fa-hospital-alt fa-fw"></i> &nbsp; Centro Auditivo
                             </a>
                         </li>
-                        <li>
-                            <a href="qr.php">
-                                <i class="fas fa-qrcode fa-fw"></i> &nbsp; Generar códigos QR
-                            </a>
-                        </li>
                     </ul>
                 </nav>
             </div>

@@ -56,6 +56,5 @@ $render_group = static function($label, $icon, $items, $pages, $current_page) us
         ], ['usuario_nuevo.php', 'usuarios.php', 'usuario_buscar.php', 'usuario_editar.php'], $current_page); ?>
     <?php endif; ?>
     <?php $render_link('empresa.php', 'fa-hospital-alt', 'Centro Auditivo', $current_page === 'empresa.php'); ?>
-    <?php $render_link('qr.php', 'fa-qrcode', 'Generar código QR', $current_page === 'qr.php'); ?>
     <li><a href="logout.php" class="btn-exit-system"><i class="fas fa-power-off fa-fw"></i> &nbsp; Salir</a></li>
 </ul>
