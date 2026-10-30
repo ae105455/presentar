@@ -7,7 +7,7 @@ if(!isset($_SESSION['usuario_id'])) {
     exit();
 }
 
-if($_SESSION['rol'] != 'admin') {
+if(!isset($_SESSION['rol']) || $_SESSION['rol'] !== 'admin') {
     header("Location: panel.php");
     exit();
 }
@@ -24,15 +24,18 @@ $error = '';
 $exito = '';
 
 if($_SERVER["REQUEST_METHOD"] == "POST") {
-    $usuario = trim($_POST['usuario']);
-    $nombre = trim($_POST['nombre']);
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
-    $password2 = $_POST['password2'];
-    $rol = $_POST['rol'];
+    $usuario = isset($_POST['usuario']) && is_string($_POST['usuario']) ? trim($_POST['usuario']) : '';
+    $nombre = isset($_POST['nombre']) && is_string($_POST['nombre']) ? trim($_POST['nombre']) : '';
+    $email = isset($_POST['email']) && is_string($_POST['email']) ? trim($_POST['email']) : '';
+    $password = isset($_POST['password']) && is_string($_POST['password']) ? $_POST['password'] : '';
+    $password2 = isset($_POST['password2']) && is_string($_POST['password2']) ? $_POST['password2'] : '';
+    $rol = isset($_POST['rol']) && is_string($_POST['rol']) ? $_POST['rol'] : '';
+    $roles_permitidos = array('recepcion', 'audiologo', 'admin');
     
     if(empty($usuario) || empty($nombre) || empty($password)) {
         $error = "Usuario, nombre y contraseña son campos obligatorios.";
+    } elseif (!in_array($rol, $roles_permitidos, true)) {
+        $error = "Selecciona un rol válido.";
     } elseif(strlen($password) < 4) {
         $error = "La contraseña debe tener al menos 4 caracteres.";
     } elseif($password != $password2) {

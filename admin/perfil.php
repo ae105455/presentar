@@ -13,6 +13,7 @@ if ($conn->connect_error) {
 }
 
 $id_usuario = (int)$_SESSION['usuario_id'];
+$es_administrador = isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin';
 
 $sql = "SELECT id_usuario, usuario, nombre, email, rol, fecha_registro FROM usuarios WHERE id_usuario = $id_usuario";
 $resultado = $conn->query($sql);
@@ -25,11 +26,19 @@ $error = '';
 $exito = '';
 
 if($_SERVER["REQUEST_METHOD"] == "POST") {
-    $nombre = trim($_POST['nombre']);
-    $email = trim($_POST['email']);
-    $password_actual = $_POST['password_actual'];
-    $nueva_password = $_POST['nueva_password'];
-    $nueva_password2 = $_POST['nueva_password2'];
+    $nombre = isset($_POST['nombre']) && is_string($_POST['nombre']) ? trim($_POST['nombre']) : '';
+    $email = $es_administrador && isset($_POST['email']) && is_string($_POST['email'])
+        ? trim($_POST['email'])
+        : (string)$usuario['email'];
+    $password_actual = isset($_POST['password_actual']) && is_string($_POST['password_actual'])
+        ? $_POST['password_actual']
+        : '';
+    $nueva_password = $es_administrador && isset($_POST['nueva_password']) && is_string($_POST['nueva_password'])
+        ? $_POST['nueva_password']
+        : '';
+    $nueva_password2 = $es_administrador && isset($_POST['nueva_password2']) && is_string($_POST['nueva_password2'])
+        ? $_POST['nueva_password2']
+        : '';
     
     $check = $conn->prepare("SELECT id_usuario FROM usuarios WHERE id_usuario = ? AND password = MD5(?)");
     $check->bind_param("is", $id_usuario, $password_actual);
@@ -39,14 +48,20 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     if($check->num_rows == 0) {
         $error = "La contraseña actual ingresada es incorrecta.";
     } else {
-        if(empty($nombre)) {
+        if($nombre === '' || strlen($nombre) > 100) {
             $error = "El nombre es obligatorio.";
         } elseif(!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = "El formato de correo electrónico no es válido.";
         } else {
-            $update_sql = "UPDATE usuarios SET nombre = ?, email = ?";
-            $params = [$nombre, $email];
-            $types = "ss";
+            $update_sql = "UPDATE usuarios SET nombre = ?";
+            $params = [$nombre];
+            $types = "s";
+
+            if ($es_administrador) {
+                $update_sql .= ", email = ?";
+                $params[] = $email;
+                $types .= "s";
+            }
             
             if(!empty($nueva_password)) {
                 if(strlen($nueva_password) < 4) {
@@ -244,6 +259,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                                    value="<?php echo htmlspecialchars($usuario['nombre']); ?>" required>
                                         </div>
                                     </div>
+                                    <?php if($es_administrador): ?>
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label for="email">Correo Electrónico</label>
@@ -251,16 +267,24 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                                    value="<?php echo htmlspecialchars($usuario['email']); ?>">
                                         </div>
                                     </div>
+                                    <?php else: ?>
+                                    <div class="col-12">
+                                        <p class="text-muted">Solo puedes cambiar tu nombre. El administrador gestiona el resto de los datos de las cuentas.</p>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
+                                <?php if($es_administrador): ?>
                                 <hr class="my-4">
                                 <h6 class="font-weight-bold text-primary mb-3"><i class="fas fa-lock"></i> Seguridad y Actualización de Contraseña</h6>
+                                <?php endif; ?>
 
                                 <div class="form-group">
                                     <label for="password_actual">Contraseña Actual <span class="text-danger">* (Requerida para guardar cualquier cambio)</span></label>
                                     <input type="password" class="form-control" id="password_actual" name="password_actual" placeholder="••••••••" required>
                                 </div>
 
+                                <?php if($es_administrador): ?>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
@@ -275,6 +299,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                         </div>
                                     </div>
                                 </div>
+                                <?php endif; ?>
 
                                 <div class="form-group text-center mt-4 mb-0">
                                     <button type="submit" class="btn btn-success btn-lg mr-2">

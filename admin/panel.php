@@ -121,6 +121,7 @@ $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
                                 <li><a href="paciente_nuevo.php"><i class="fas fa-user-plus fa-fw"></i> &nbsp; Registrar Paciente</a></li>
                                 <li><a href="pacientes.php"><i class="fas fa-clipboard-list fa-fw"></i> &nbsp; Lista de Pacientes</a></li>
                                 <li><a href="paciente_buscar.php"><i class="fas fa-search fa-fw"></i> &nbsp; Buscar Paciente</a></li>
+                                <li><a href="pacientes.php#pacientes-lista"><i class="fas fa-file-medical fa-fw"></i> &nbsp; Historial de Audiometrías</a></li>
                             </ul>
                         </li>
 

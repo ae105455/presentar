@@ -8,7 +8,7 @@ if(!isset($_SESSION['usuario_id'])) {
 }
 
 // Solo administradores pueden eliminar usuarios
-if($_SESSION['rol'] != 'admin') {
+if(!isset($_SESSION['rol']) || $_SESSION['rol'] !== 'admin') {
     header("Location: panel.php");
     exit();
 }

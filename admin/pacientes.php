@@ -111,6 +111,7 @@ while ($conteo = $conteos_resultado->fetch_assoc()) {
                                 <li><a href="paciente_nuevo.php"><i class="fas fa-user-plus fa-fw"></i> &nbsp; Registrar Paciente</a></li>
                                 <li><a href="pacientes.php" class="active"><i class="fas fa-clipboard-list fa-fw"></i> &nbsp; Lista de Pacientes</a></li>
                                 <li><a href="paciente_buscar.php"><i class="fas fa-search fa-fw"></i> &nbsp; Buscar Paciente</a></li>
+                                <li><a href="pacientes.php#pacientes-lista"><i class="fas fa-file-medical fa-fw"></i> &nbsp; Historial de Audiometrías</a></li>
                             </ul>
                         </li>
                         <li>
@@ -217,7 +218,7 @@ while ($conteo = $conteos_resultado->fetch_assoc()) {
             </div>
             
             <div class="container-fluid">
-                <div class="table-container">
+                <div class="table-container" id="pacientes-lista">
                     <div class="table-container-header">
                         <h5 class="table-container-title"><i class="fas fa-users text-primary"></i> Pacientes Registrados</h5>
                         <a href="paciente_nuevo.php" class="btn btn-sm btn-success"><i class="fas fa-plus"></i> Nuevo Paciente</a>
