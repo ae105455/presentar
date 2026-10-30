@@ -129,10 +129,38 @@ CREATE TABLE IF NOT EXISTS empresa (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
--- 7. TABLA: MENSAJES_CONTACTO
+-- 7. TABLA: PAGOS
+-- ================================================================
+CREATE TABLE IF NOT EXISTS pagos (
+    id_pago INT AUTO_INCREMENT PRIMARY KEY,
+    id_empresa INT NOT NULL,
+    id_reserva INT NULL,
+    id_usuario INT NOT NULL,
+    monto DECIMAL(10, 2) NOT NULL,
+    fecha_pago DATE NOT NULL,
+    metodo VARCHAR(100) NOT NULL DEFAULT 'Efectivo',
+    nota TEXT,
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    numero_factura VARCHAR(30),
+    token_comprobante CHAR(64) UNIQUE,
+    CONSTRAINT fk_pagos_empresa FOREIGN KEY (id_empresa)
+        REFERENCES empresa(id_empresa) ON DELETE RESTRICT,
+    CONSTRAINT fk_pagos_reserva FOREIGN KEY (id_reserva)
+        REFERENCES reservas(id_reserva) ON DELETE SET NULL,
+    CONSTRAINT fk_pagos_usuario FOREIGN KEY (id_usuario)
+        REFERENCES usuarios(id_usuario) ON DELETE RESTRICT,
+    INDEX idx_pagos_empresa (id_empresa),
+    INDEX idx_pagos_reserva (id_reserva),
+    INDEX idx_pagos_usuario (id_usuario),
+    INDEX idx_pagos_fecha (fecha_pago)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ================================================================
+-- 8. TABLA: MENSAJES_CONTACTO
 -- ================================================================
 CREATE TABLE IF NOT EXISTS mensajes_contacto (
     id_mensaje INT AUTO_INCREMENT PRIMARY KEY,
+    id_paciente INT NULL,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
     telefono VARCHAR(20),
@@ -140,39 +168,51 @@ CREATE TABLE IF NOT EXISTS mensajes_contacto (
     mensaje TEXT NOT NULL,
     estado ENUM('leido', 'no_leido') DEFAULT 'no_leido',
     fecha_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mensaje_paciente FOREIGN KEY (id_paciente)
+        REFERENCES pacientes(id_paciente) ON DELETE SET NULL,
+    INDEX idx_mensaje_paciente (id_paciente),
     INDEX idx_estado (estado),
     INDEX idx_fecha (fecha_envio)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
--- 8. TABLA: RESERVAS_RAPIDAS
+-- 9. TABLA: RESERVAS_RAPIDAS
 -- ================================================================
 CREATE TABLE IF NOT EXISTS reservas_rapidas (
     id_reserva INT AUTO_INCREMENT PRIMARY KEY,
+    id_paciente INT NULL,
+    id_reserva_sistema INT NULL,
+    cedula VARCHAR(20) NOT NULL,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
     telefono VARCHAR(20),
     edad VARCHAR(20),
     servicio VARCHAR(50) NOT NULL,
     fecha DATE NOT NULL,
-    hora VARCHAR(10),
+    hora VARCHAR(10) NULL,
     como_nos_conocio VARCHAR(50),
     mensaje TEXT,
     estado ENUM('pendiente', 'confirmada', 'cancelada') DEFAULT 'pendiente',
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reserva_web_paciente FOREIGN KEY (id_paciente)
+        REFERENCES pacientes(id_paciente) ON DELETE SET NULL,
+    CONSTRAINT fk_reserva_web_sistema FOREIGN KEY (id_reserva_sistema)
+        REFERENCES reservas(id_reserva) ON DELETE SET NULL,
+    INDEX idx_reserva_web_paciente (id_paciente),
+    UNIQUE KEY uq_reserva_web_sistema (id_reserva_sistema),
     INDEX idx_estado (estado),
     INDEX idx_fecha (fecha)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
--- 9. DATOS INICIALES - USUARIO ADMIN
+-- 10. DATOS INICIALES - USUARIO ADMIN
 -- ================================================================
 -- Usuario: admin | Contraseña: admin (MD5: 21232f297a57a5a743894a0e4a801fc3)
 INSERT IGNORE INTO usuarios (id_usuario, usuario, nombre, email, password, rol, estado) 
 VALUES (1, 'admin', 'Administrador', 'admin@aureamed.com', '21232f297a57a5a743894a0e4a801fc3', 'admin', 'activo');
 
 -- ================================================================
--- 10. DATOS INICIALES - EMPRESA
+-- 11. DATOS INICIALES - EMPRESA
 -- ================================================================
 INSERT IGNORE INTO empresa (id_empresa, nombre, email, telefono, direccion, horario_atencion) 
 VALUES (
@@ -185,7 +225,7 @@ VALUES (
 );
 
 -- ================================================================
--- 11. DATOS INICIALES - SERVICIOS
+-- 12. DATOS INICIALES - SERVICIOS
 -- ================================================================
 INSERT IGNORE INTO servicios (id_servicio, nombre_servicio, descripcion, duracion_minutos, precio, estado) 
 VALUES 
@@ -194,6 +234,14 @@ VALUES
     (3, 'Limpieza de Oído', 'Limpieza profesional del conducto auditivo', 30, 50.00, 'activo'),
     (4, 'Reparación de Audífonos', 'Servicio técnico de audífonos', 60, 80.00, 'activo'),
     (5, 'Moldeado de Audífono', 'Moldeado personalizado de audífono', 30, 120.00, 'activo');
+
+-- ================================================================
+-- 13. CORRECCIÓN DE FECHA DE NACIMIENTO
+-- Corrige el año 1199 ingresado por error para evitar una edad inválida.
+UPDATE pacientes
+SET fecha_nac = '1999-12-12'
+WHERE id_paciente = 5
+  AND fecha_nac = '1199-12-12';
 
 -- ================================================================
 -- FINS DEL SCRIPT SQL
