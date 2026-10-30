@@ -6,12 +6,8 @@
   <title>AUREA - Hipoacusia</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="incio.css">
-  <link rel="stylesheet" href="guardar_comentario.php">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="stylesheet" href="global.css">
-    <!-- Rutas CORREGIDAS (funcionan en GitHub Pages) -->
-<link rel="stylesheet" href="https://espinozavargasabrahamisec-png.github.io/aurea-/inicio/incio.css">
-
 </head>
 <body>
 
@@ -68,10 +64,11 @@
                 </li>
                 
                 <li class="nav-item dropdown">
-                    <a class="nav-link text-white fw-semibold dropdown-toggle" href="#contacto" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a class="nav-link text-white fw-semibold dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Ubicaciones
                     </a>
                     <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="#reservar">Reservar cita</a></li>
     <li><a class="dropdown-item" href="./ubicacion/implante.html#la-paz">La Paz</a></li>
     
     <li><a class="dropdown-item" href="./ubicacion/implante.html#el-alto">El Alto</a></li>
@@ -89,15 +86,20 @@
 <!-- WhatsApp -->
 <a href="https://wa.me/59177534284?text=Hola,%20quisiera%20recibir%20informaci%C3%B3n%20sobre%20los%20servicios%20de%20Aureamed%20y%20coordinar%20una%20cita.%20%C2%BFPodr%C3%ADan%20ayudarme?" 
    class="flotante whatsapp" 
-   target="_blank">
+   target="_blank" rel="noopener noreferrer" aria-label="Contactar a AureaMed por WhatsApp">
     <i class="fab fa-whatsapp"></i>
 </a>
 
 
 
 <!-- Facebook -->
-<a href="https://www.facebook.com/AUREAEVOLUCIONAUDITIVA" class="flotante facebook" target="_blank" title="Síguenos en Facebook">
+<a href="https://www.facebook.com/AUREAEVOLUCIONAUDITIVA" class="flotante facebook" target="_blank" rel="noopener noreferrer" title="Síguenos en Facebook">
   <i class="icono fab fa-facebook-f"></i>
+</a>
+
+<!-- Acceso al formulario de reclamos -->
+<a href="#reclamo" class="flotante reclamo" title="Enviar un reclamo" aria-label="Enviar un reclamo">
+  <i class="fas fa-comment-medical" aria-hidden="true"></i>
 </a>
 
 <!-- Botón Scroll Top -->
@@ -425,8 +427,6 @@
 
 
 
-<!-- ================= CONTACTO ================= -->
-
 <!-- ================= RESERVA DE CITAS ================= -->
 <section id="reservar" class="reserva-section">
 
@@ -455,19 +455,24 @@
             <div class="input-grupo">
               <label class="campo-label" for="nombre">Nombre completo <span aria-hidden="true">*</span></label>
               <i class="fas fa-user"></i>
-              <input type="text" id="nombre" name="nombre" placeholder="Escribe tu nombre completo" autocomplete="name" aria-describedby="error-nombre" required>
+              <input type="text" id="nombre" name="nombre" maxlength="100" placeholder="Escribe tu nombre completo" autocomplete="name" aria-describedby="error-nombre" required>
               <small id="error-nombre" class="campo-error" role="alert"></small>
+            </div>
+            <div class="input-grupo">
+              <label class="campo-label" for="cedula">Cédula de identidad <span aria-hidden="true">*</span></label>
+              <i class="fas fa-id-card"></i>
+              <input type="text" id="cedula" name="cedula" maxlength="20" autocomplete="off" placeholder="Escribe tu cédula" pattern="[A-Za-z0-9.\-]+" title="Usa letras, números, punto o guion" required>
             </div>
             <div class="input-grupo">
               <label class="campo-label" for="email">Correo electrónico <span aria-hidden="true">*</span></label>
               <i class="fas fa-envelope"></i>
-              <input type="email" id="email" name="email" placeholder="Escribe tu correo electrónico" autocomplete="email" aria-describedby="error-email" required>
+              <input type="email" id="email" name="email" maxlength="100" placeholder="Escribe tu correo electrónico" autocomplete="email" aria-describedby="error-email" required>
               <small id="error-email" class="campo-error" role="alert"></small>
             </div>
             <div class="input-grupo">
               <label class="campo-label" for="telefono">Teléfono / WhatsApp</label>
               <i class="fas fa-phone-alt"></i>
-              <input type="tel" id="telefono" name="telefono" placeholder="Escribe tu teléfono" aria-describedby="error-telefono">
+              <input type="tel" id="telefono" name="telefono" maxlength="20" placeholder="Escribe tu teléfono" aria-describedby="error-telefono">
               <small id="error-telefono" class="campo-error" role="alert"></small>
             </div>
             <div class="input-grupo">
@@ -499,7 +504,7 @@
                 <option value="">¿Qué servicio necesitas?</option>
                 <option value="audiometria">🦻 Audiometría (Prueba de audición)</option>
                 <option value="limpieza">🧼 Limpieza de oídos</option>
-                <option value="calibracion">⚙️ Calibración de audífonos</option>
+                <option value="reparacion">⚙️ Reparación de audífonos</option>
                 <option value="moldes">👂 Elaboración de moldes</option>
                 <option value="consulta">💬 Consulta general</option>
               </select>
@@ -514,8 +519,8 @@
             <div class="input-grupo">
               <label class="campo-label" for="hora">Horario preferido</label>
               <i class="fas fa-clock"></i>
-              <select id="hora" name="hora">
-                <option value="">Horario preferido</option>
+              <select id="hora" name="hora" required>
+                <option value="">Selecciona un horario</option>
                 <option value="09:00">🕘 09:00 - 10:00</option>
                 <option value="10:00">🕙 10:00 - 11:00</option>
                 <option value="11:00">🕚 11:00 - 12:00</option>
@@ -544,7 +549,7 @@
           <div class="input-grupo full-width">
             <label class="campo-label" for="mensaje">Mensaje adicional</label>
             <i class="fas fa-comment-dots"></i>
-            <textarea id="mensaje" name="mensaje" rows="3" placeholder="¿Algo más que quieras decirnos? (Ej: Necesito atención especial, problemas de movilidad, etc.)"></textarea>
+            <textarea id="mensaje" name="mensaje" rows="3" maxlength="5000" placeholder="¿Algo más que quieras decirnos? (Ej: Necesito atención especial, problemas de movilidad, etc.)"></textarea>
           </div>
         </div>
 
@@ -562,10 +567,45 @@
     </div>
   </div>
 </section>
+<section id="reclamo" class="reclamo-section">
+  <div class="container">
+    <div class="reclamo-card">
+      <div class="reclamo-heading">
+        <span class="reclamo-icon"><i class="fas fa-comment-medical" aria-hidden="true"></i></span>
+        <div>
+          <h2>¿Tuviste un problema?</h2>
+          <p>Cuéntanos qué ocurrió. Tu reclamo llegará directamente a nuestro equipo.</p>
+        </div>
+      </div>
+      <form id="form-reclamo" action="procesar_mensaje.php" method="post">
+        <div class="reclamo-grid">
+          <label for="reclamo-nombre">Tu nombre
+            <input id="reclamo-nombre" type="text" name="nombre" maxlength="100" autocomplete="name" placeholder="Escribe tu nombre" required>
+          </label>
+          <label for="reclamo-email">Tu correo
+            <input id="reclamo-email" type="email" name="email" maxlength="100" autocomplete="email" placeholder="nombre@correo.com" required>
+          </label>
+          <label for="reclamo-telefono">Teléfono o WhatsApp <span>(opcional)</span>
+            <input id="reclamo-telefono" type="tel" name="telefono" maxlength="20" autocomplete="tel" placeholder="Tu número de contacto">
+          </label>
+          <label class="reclamo-full-width" for="reclamo-mensaje">Describe tu reclamo
+            <textarea id="reclamo-mensaje" name="mensaje" rows="5" maxlength="5000" placeholder="Cuéntanos qué pasó y cómo podemos ayudarte." required></textarea>
+          </label>
+        </div>
+        <input type="hidden" name="asunto" value="Reclamo">
+        <button type="submit" class="btn-enviar-reclamo">
+          <i class="fas fa-paper-plane" aria-hidden="true"></i> Enviar reclamo
+        </button>
+        <small class="reclamo-privacy-note">Recibiremos tu mensaje en la bandeja de reclamos del administrador.</small>
+      </form>
+    </div>
+  </div>
+</section>
 <script>
   (function () {
     const form = document.getElementById('form-reserva');
     const nombre = form.querySelector('[name="nombre"]');
+    const cedula = form.querySelector('[name="cedula"]');
     const email = form.querySelector('[name="email"]');
     const telefono = form.querySelector('[name="telefono"]');
     const servicio = form.querySelector('[name="servicio"]');
@@ -587,6 +627,8 @@
         mensaje = 'Debes llenar tu nombre completo.';
       } else if (campo === nombre && !/^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+(?:[ '\-][A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+)*$/.test(valor)) {
         mensaje = 'El nombre está mal escrito. Usa solo letras y espacios.';
+      } else if (campo === cedula && !/^[A-Za-z0-9.-]{1,20}$/.test(valor)) {
+        mensaje = 'Escribe una cédula válida.';
       } else if (campo === email && !valor) {
         mensaje = 'Debes llenar tu correo electrónico.';
       } else if (campo === email && !email.validity.valid) {
@@ -609,7 +651,7 @@
       }
     }
 
-    [nombre, email, telefono, servicio, fecha].forEach(function (campo) {
+    [nombre, cedula, email, telefono, servicio, fecha].forEach(function (campo) {
       campo.addEventListener('invalid', function () {
         formularioEnviado = true;
         validarCampo(campo);
@@ -624,7 +666,7 @@
 
     form.addEventListener('submit', function (event) {
       formularioEnviado = true;
-      [nombre, email, telefono, servicio, fecha].forEach(validarCampo);
+      [nombre, cedula, email, telefono, servicio, fecha].forEach(validarCampo);
 
       if (!form.checkValidity()) {
         event.preventDefault();
@@ -635,7 +677,7 @@
     form.addEventListener('reset', function () {
       setTimeout(function () {
         formularioEnviado = false;
-        [nombre, email, telefono, servicio, fecha].forEach(validarCampo);
+        [nombre, cedula, email, telefono, servicio, fecha].forEach(validarCampo);
       }, 0);
     });
   }());
@@ -921,8 +963,8 @@
             <div class="col-md-4">
                 <h4>Contacto</h4>
                 <p>📍 Av.Arce Nro.2652 Edif. MILA Mezanine 1 Of. L21<br>(frente al Multicine La Paz, Bolivia)</p>
-                <p>📞 +591  77534284</p>
-                <p>✉️ contacto@aureamed.com.bo</p>
+                <p>📞 <a href="tel:+59177534284">+591 77534284</a></p>
+                <p>✉️ <a href="mailto:contacto@aureamed.com.bo">contacto@aureamed.com.bo</a></p>
             </div>
 
             <div class="col-md-4">
@@ -1031,7 +1073,10 @@
             // Iniciar con retardo escalonado
             setTimeout(() => {
                 animateStep();
-                document.getElementById('animation-status').style.display = 'block';
+                const status = document.getElementById('animation-status');
+                if (status) {
+                    status.style.display = 'block';
+                }
             }, index * 800);
         });
     }, 1000);

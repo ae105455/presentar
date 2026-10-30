@@ -623,6 +623,140 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: inset 0 0 15px rgba(0,0,0,0.05);
 }
 
+.reclamo-section {
+  padding: 60px 20px;
+  background: #f4f6f8;
+}
+
+.reclamo-card {
+  max-width: 850px;
+  margin: auto;
+  padding: 32px;
+  border: 1px solid #e8dada;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(34, 34, 34, 0.1);
+}
+
+.reclamo-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.reclamo-heading h2 {
+  margin: 0 0 5px;
+}
+
+.reclamo-heading p {
+  margin: 0;
+  color: #555;
+}
+
+.reclamo-icon {
+  display: grid;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f9eded;
+  color: #8b2c2c;
+  font-size: 24px;
+}
+
+.reclamo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reclamo-grid label {
+  display: grid;
+  gap: 6px;
+  color: #343a40;
+  font-weight: 600;
+}
+
+.reclamo-grid label span,
+.reclamo-privacy-note {
+  color: #68717b;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.reclamo-grid input,
+.reclamo-grid textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #d5dbe1;
+  border-radius: 9px;
+  background: #fff;
+  font: inherit;
+}
+
+.reclamo-grid textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.reclamo-grid input:focus,
+.reclamo-grid textarea:focus {
+  border-color: #8b2c2c;
+  outline: 3px solid rgba(139, 44, 44, 0.14);
+}
+
+.reclamo-full-width {
+  grid-column: 1 / -1;
+}
+
+.btn-enviar-reclamo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  margin-top: 20px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8b2c2c, #f4911e);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-enviar-reclamo:hover,
+.btn-enviar-reclamo:focus-visible {
+  filter: brightness(0.94);
+}
+
+.reclamo-privacy-note {
+  display: block;
+  margin-top: 10px;
+}
+
+@media (max-width: 576px) {
+  .reclamo-card {
+    padding: 22px 18px;
+  }
+
+  .reclamo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reclamo-full-width {
+    grid-column: auto;
+  }
+
+  .btn-enviar-reclamo {
+    width: 100%;
+  }
+}
+
 .empresa-item .btn {
   padding: 12px 28px;
   border-radius: 50px;

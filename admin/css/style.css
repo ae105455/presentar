@@ -389,7 +389,7 @@ a:hover {
 
 /* Colapso del Sidebar */
 .nav-lateral.active {
-    transform: translateX(calc(-1 * var(--sidebar-width)));
+    transform: translateX(calc(0px - var(--sidebar-width)));
 }
 
 .page-content.active {
@@ -1215,6 +1215,277 @@ a:hover {
     width: 100%;
     overflow-x: auto;
     margin: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.patients-mobile-hint {
+    display: none;
+}
+
+.patient-email-link {
+    overflow-wrap: anywhere;
+}
+
+.patient-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 290px;
+}
+
+.patient-actions .btn {
+    min-height: 38px;
+    white-space: nowrap;
+}
+
+.patient-actions-grid {
+    display: grid;
+    grid-template-columns: max-content max-content;
+    justify-content: center;
+    align-items: center;
+    min-width: 290px;
+    gap: 8px;
+}
+
+.patient-actions-grid .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: 9px;
+    font-weight: 700;
+    box-shadow: var(--shadow-xs);
+    transition: var(--transition);
+}
+
+.patient-actions-grid .btn:hover,
+.patient-actions-grid .btn:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.patient-actions-grid .btn-eliminar-paciente {
+    grid-column: 2;
+}
+
+.patient-audiometry {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    min-width: 130px;
+}
+
+.patient-audiometry-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px 10px;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-full);
+    background: var(--slate-50);
+    color: var(--slate-600);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.patient-audiometry-count.has-records {
+    border-color: var(--color-info-border);
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+.patient-audiometry-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--brand-primary);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.patient-audiometry-link:hover,
+.patient-audiometry-link:focus-visible {
+    color: var(--brand-darkest);
+    text-decoration: underline !important;
+}
+
+.patient-share-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.patient-share-menu > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.patient-share-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.patient-share-options {
+    display: grid;
+    min-width: 190px;
+    margin-top: 6px;
+    padding: 6px;
+    background: #ffffff;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+}
+
+.patient-share-menu:not([open]) .patient-share-options {
+    display: none;
+}
+
+.patient-share-menu[open] .patient-share-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+}
+
+.patient-share-options a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--slate-700);
+}
+
+.patient-share-options a:hover,
+.patient-share-options a:focus {
+    background: var(--slate-100);
+    color: var(--brand-primary);
+}
+
+.attendance-cell,
+.web-request-status {
+    display: grid;
+    justify-items: start;
+    gap: 7px;
+    min-width: 150px;
+}
+
+.attendance-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(76px, 1fr));
+    gap: 5px;
+    width: 100%;
+    min-width: 250px;
+}
+
+.attendance-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 6px 5px;
+    border: 1px solid var(--slate-300);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--slate-700);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.attendance-option:hover,
+.attendance-option:focus-visible {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+    outline: none;
+}
+
+.attendance-option-current,
+.attendance-option-current:hover,
+.attendance-option-current:focus-visible {
+    cursor: default;
+}
+
+.attendance-option-pendiente,
+.attendance-option-pendiente:hover,
+.attendance-option-pendiente:focus-visible {
+    border-color: #fcd34d;
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.attendance-option-atendida,
+.attendance-option-atendida:hover,
+.attendance-option-atendida:focus-visible {
+    border-color: #86efac;
+    background: #dcfce7;
+    color: #166534;
+}
+
+.attendance-option-no_asistio,
+.attendance-option-no_asistio:hover,
+.attendance-option-no_asistio:focus-visible {
+    border-color: #fca5a5;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.attendance-hint {
+    color: var(--slate-500);
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.attendance-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 5px 9px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.attendance-done {
+    color: #166534;
+    background: #dcfce7;
+    border-color: #86efac;
+}
+
+.attendance-waiting {
+    color: #92400e;
+    background: #fef3c7;
+    border-color: #fcd34d;
+}
+
+.attendance-missed {
+    color: #991b1b;
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.web-request-status .badge-confirmada {
+    width: fit-content;
 }
 
 .table {
@@ -1484,7 +1755,7 @@ textarea.form-control {
 /* 16. RESPONSIVE BREAKPOINTS */
 @media (max-width: 992px) {
     .nav-lateral {
-        transform: translateX(calc(-1 * var(--sidebar-width)));
+        transform: translateX(calc(0px - var(--sidebar-width)));
     }
     .nav-lateral.active {
         transform: translateX(0);
@@ -1526,5 +1797,21 @@ textarea.form-control {
     }
     .form-neon {
         padding: 20px 16px;
+    }
+    .patients-mobile-hint {
+        display: block;
+        margin: 10px 12px;
+        color: var(--slate-600);
+        font-size: 12px;
+    }
+    .patient-actions {
+        justify-content: flex-start;
+        min-width: 260px;
+    }
+    .patient-actions .btn {
+        min-height: 42px;
+    }
+    .patient-share-options {
+        min-width: 210px;
     }
 }

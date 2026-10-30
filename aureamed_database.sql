@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS reservas (
     fecha_reserva DATE NOT NULL,
     hora_reserva VARCHAR(10) NOT NULL,
     estado ENUM('pendiente', 'confirmada', 'cancelada', 'completada') DEFAULT 'pendiente',
+    estado_atencion ENUM('pendiente', 'atendida', 'no_asistio') NOT NULL DEFAULT 'pendiente',
     observaciones TEXT,
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_reserva_paciente FOREIGN KEY (id_paciente) REFERENCES pacientes(id_paciente) ON DELETE CASCADE,

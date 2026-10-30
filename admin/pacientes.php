@@ -35,13 +35,42 @@ $sql = "SELECT id_paciente, cedula, nombre, apellido, telefono, email, fecha_nac
     AND ('" . $buscar_sql . "' = '' OR nombre LIKE '%" . $buscar_sql . "%' OR apellido LIKE '%" . $buscar_sql . "%' OR cedula LIKE '%" . $buscar_sql . "%')
         ORDER BY id_paciente DESC";
 $resultado = $conn->query($sql);
+if (!$resultado) {
+    die("Error al consultar los pacientes: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
 $conteos_audiometrias = [];
-$conteos_resultado = $conn->query("SELECT id_paciente, COUNT(*) AS total FROM audiometrias GROUP BY id_paciente");
+$ultima_audiometria_por_paciente = [];
+$conteos_resultado = $conn->query("SELECT id_paciente, id_audiometria FROM audiometrias ORDER BY fecha_audiometria DESC, id_audiometria DESC");
 if (!$conteos_resultado) {
-    die("Error al consultar el historial de audiometrías: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+   die("Error al consultar el historial de audiometrías: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+$ultimos_pagos_por_paciente = [];
+$tabla_pagos = $conn->query("SHOW TABLES LIKE 'pagos'");
+if (!$tabla_pagos) {
+   die("Error al comprobar los comprobantes de pago: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+}
+if ($tabla_pagos->num_rows > 0) {
+   $pagos_resultado = $conn->query("SELECT r.id_paciente, p.id_pago
+       FROM pagos p
+       INNER JOIN reservas r ON r.id_reserva = p.id_reserva
+       ORDER BY p.id_pago DESC");
+   if (!$pagos_resultado) {
+       die("Error al consultar los comprobantes de pago: " . htmlspecialchars($conn->error, ENT_QUOTES, 'UTF-8'));
+   }
+   while ($pago = $pagos_resultado->fetch_assoc()) {
+       $id_paciente_pago = (int)$pago['id_paciente'];
+       if (!isset($ultimos_pagos_por_paciente[$id_paciente_pago])) {
+           $ultimos_pagos_por_paciente[$id_paciente_pago] = (int)$pago['id_pago'];
+       }
+   }
 }
 while ($conteo = $conteos_resultado->fetch_assoc()) {
-    $conteos_audiometrias[(int)$conteo['id_paciente']] = (int)$conteo['total'];
+   $id_paciente_audiometria = (int)$conteo['id_paciente'];
+   if (!isset($conteos_audiometrias[$id_paciente_audiometria])) {
+       $conteos_audiometrias[$id_paciente_audiometria] = 0;
+       $ultima_audiometria_por_paciente[$id_paciente_audiometria] = (int)$conteo['id_audiometria'];
+   }
+   $conteos_audiometrias[$id_paciente_audiometria]++;
 }
 ?>
 <!DOCTYPE html>
@@ -194,6 +223,7 @@ while ($conteo = $conteos_resultado->fetch_assoc()) {
                         <a href="paciente_nuevo.php" class="btn btn-sm btn-success"><i class="fas fa-plus"></i> Nuevo Paciente</a>
                     </div>
                     <div class="table-responsive">
+                        <p class="patients-mobile-hint">En celular, desliza la tabla horizontalmente para ver todas las opciones.</p>
                         <table class="table">
                             <thead>
                                 <tr>
@@ -219,31 +249,80 @@ while ($conteo = $conteos_resultado->fetch_assoc()) {
                                             <td><?php echo htmlspecialchars($row['apellido']); ?></td>
                                             <td><?php echo htmlspecialchars(edadPaciente($row['fecha_nac']), ENT_QUOTES, 'UTF-8'); ?></td>
                                             <td><?php echo htmlspecialchars($row['telefono']) ?: '-'; ?></td>
-                                            <td><?php echo htmlspecialchars($row['email']) ?: '-'; ?></td>
+                                            <td>
+                                                <?php if (!empty($row['email'])): ?>
+                                                    <a href="mailto:<?php echo htmlspecialchars($row['email'], ENT_QUOTES, 'UTF-8'); ?>" class="patient-email-link">
+                                                        <?php echo htmlspecialchars($row['email'], ENT_QUOTES, 'UTF-8'); ?>
+                                                    </a>
+                                                <?php else: ?>
+                                                    -
+                                                <?php endif; ?>
+                                            </td>
                                             <td><?php echo date('d/m/Y', strtotime($row['fecha_registro'])); ?></td>
                                             <td>
-                                                <a href="audimetria_historial.php?id_paciente=<?php echo (int)$row['id_paciente']; ?>" class="btn btn-sm btn-outline-primary">
-                                                    <i class="fas fa-file-medical"></i>
-                                                    <?php echo isset($conteos_audiometrias[(int)$row['id_paciente']]) ? $conteos_audiometrias[(int)$row['id_paciente']] : 0; ?> ver
-                                                </a>
+                                                <?php $cantidad_audiometrias = isset($conteos_audiometrias[(int)$row['id_paciente']]) ? $conteos_audiometrias[(int)$row['id_paciente']] : 0; ?>
+                                                <div class="patient-audiometry">
+                                                    <span class="patient-audiometry-count<?php echo $cantidad_audiometrias > 0 ? ' has-records' : ''; ?>">
+                                                        <i class="fas fa-file-medical" aria-hidden="true"></i>
+                                                        <?php echo $cantidad_audiometrias > 0 ? $cantidad_audiometrias . ' registro' . ($cantidad_audiometrias === 1 ? '' : 's') : 'Sin registros'; ?>
+                                                    </span>
+                                                    <a href="audimetria_historial.php?id_paciente=<?php echo (int)$row['id_paciente']; ?>" class="patient-audiometry-link">
+                                                        Ver historial
+                                                        <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                                    </a>
+                                                </div>
                                             </td>
                                             <td>
-                                                <div class="btn-group">
+                                                <?php
+                                                    $id_paciente_actual = (int)$row['id_paciente'];
+                                                    $nombre_paciente = trim($row['nombre'] . ' ' . $row['apellido']);
+                                                    $email_paciente = trim((string)$row['email']);
+                                                    $telefono_whatsapp = preg_replace('/\D+/', '', (string)$row['telefono']);
+                                                    if (strlen($telefono_whatsapp) === 8) {
+                                                        $telefono_whatsapp = '591' . $telefono_whatsapp;
+                                                    }
+                                                ?>
+                                                <div class="patient-actions patient-actions-grid">
+                                                    <details class="patient-share-menu">
+                                                        <summary class="btn btn-sm btn-outline-secondary" aria-label="Compartir documentos y contactar al paciente" title="Compartir">
+                                                            <i class="fas fa-link" aria-hidden="true"></i>
+                                                        </summary>
+                                                        <div class="patient-share-options">
+                                                            <?php if (!empty($ultima_audiometria_por_paciente[$id_paciente_actual])): ?>
+                                                                <a href="audimetria_ver.php?id=<?php echo $ultima_audiometria_por_paciente[$id_paciente_actual]; ?>" target="_blank" rel="noopener noreferrer">
+                                                                    <i class="fas fa-file-medical"></i> Informe / PDF
+                                                                </a>
+                                                            <?php endif; ?>
+                                                            <?php if (!empty($ultimos_pagos_por_paciente[$id_paciente_actual])): ?>
+                                                                <a href="factura_ver.php?id=<?php echo $ultimos_pagos_por_paciente[$id_paciente_actual]; ?>&amp;pdf=1">
+                                                                    <i class="fas fa-file-pdf"></i> Comprobante PDF
+                                                                </a>
+                                                            <?php endif; ?>
+                                                            <?php if ($email_paciente !== ''): ?>
+                                                                <a href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=<?php echo rawurlencode($email_paciente); ?>&amp;su=<?php echo rawurlencode('Coordinación de atención - AureaMed'); ?>&amp;body=<?php echo rawurlencode('Hola, le contactamos de AureaMed. Puede responder a este correo para coordinar su atención. Descargue y adjunte los documentos PDF que correspondan.'); ?>" target="_blank" rel="noopener noreferrer">
+                                                                    <i class="fas fa-envelope"></i> Gmail
+                                                                </a>
+                                                            <?php endif; ?>
+                                                            <?php if (strlen($telefono_whatsapp) >= 8): ?>
+                                                                <a href="https://wa.me/<?php echo htmlspecialchars($telefono_whatsapp, ENT_QUOTES, 'UTF-8'); ?>?text=<?php echo rawurlencode('Hola, le contactamos de AureaMed. Si desea coordinar una cita, responda a este mensaje.'); ?>" target="_blank" rel="noopener noreferrer">
+                                                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </details>
                                                     <button type="button" class="btn btn-success btn-sm btn-nueva-audiometria"
                                                             data-toggle="modal" data-target="#modalAudiometria"
-                                                            data-id="<?php echo (int)$row['id_paciente']; ?>"
-                                                            data-nombre="<?php echo htmlspecialchars($row['nombre'] . ' ' . $row['apellido'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                            data-id="<?php echo $id_paciente_actual; ?>"
+                                                            data-nombre="<?php echo htmlspecialchars($nombre_paciente, ENT_QUOTES, 'UTF-8'); ?>"
                                                             title="Registrar audiometría">
-                                                        <i class="fas fa-file-medical"></i>
+                                                        <i class="fas fa-file-medical" aria-hidden="true"></i> Añadir audiometría
                                                     </button>
-                                                    <a href="paciente_editar.php?id=<?php echo $row['id_paciente']; ?>" class="btn btn-primary btn-sm" title="Editar Paciente">
-                                                        <i class="fas fa-edit"></i>
+                                                    <a href="paciente_editar.php?id=<?php echo $id_paciente_actual; ?>" class="btn btn-primary btn-sm" title="Editar Paciente">
+                                                        <i class="fas fa-edit" aria-hidden="true"></i> Editar
                                                     </a>
-                                                    <button type="button" class="btn btn-danger btn-sm btn-eliminar-paciente" 
-                                                            data-id="<?php echo $row['id_paciente']; ?>" 
-                                                            data-nombre="<?php echo htmlspecialchars($row['nombre'] . ' ' . $row['apellido']); ?>"
+                                                    <button type="button" class="btn btn-danger btn-sm btn-eliminar-paciente" data-id="<?php echo $id_paciente_actual; ?>" data-nombre="<?php echo htmlspecialchars($nombre_paciente, ENT_QUOTES, 'UTF-8'); ?>"
                                                             title="Eliminar Paciente">
-                                                        <i class="fas fa-trash-alt"></i>
+                                                        <i class="fas fa-trash-alt" aria-hidden="true"></i> Eliminar
                                                     </button>
                                                 </div>
                                             </td>

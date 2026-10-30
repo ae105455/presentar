@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/attendance_helpers.php';
 
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
@@ -11,6 +12,12 @@ $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+try {
+    asegurarEstadoAtencionReservas($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
+}
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
@@ -21,7 +28,7 @@ $buscar_sql = $conn->real_escape_string($buscar);
 
 $sql = "SELECT p.id_paciente, p.cedula, p.nombre, p.apellido, p.email, p.telefono, p.fecha_registro, 
         COUNT(r.id_reserva) as total_reservas,
-        SUM(CASE WHEN r.estado IN ('completada', 'atendida') THEN 1 ELSE 0 END) as total_atendidas
+        SUM(CASE WHEN r.estado_atencion = 'atendida' THEN 1 ELSE 0 END) as total_atendidas
         FROM pacientes p
         LEFT JOIN reservas r ON p.id_paciente = r.id_paciente
         WHERE p.fecha_registro BETWEEN '" . $conn->real_escape_string($fecha_inicio) . "' AND '" . $conn->real_escape_string($fecha_fin) . "'

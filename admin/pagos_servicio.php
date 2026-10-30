@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/payment_helpers.php';
 
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
@@ -11,58 +12,122 @@ $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+try {
+    $id_empresa_actual = asegurarTablaPagos($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
+}
 require_once __DIR__ . '/comprobante_helpers.php';
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
 
-// Crear tabla de pagos si no existe
-$createPagosTable = "CREATE TABLE IF NOT EXISTS pagos (
-    id_pago INT AUTO_INCREMENT PRIMARY KEY,
-    id_reserva INT NOT NULL,
-    id_usuario INT NOT NULL,
-    monto DECIMAL(10,2) NOT NULL,
-    fecha_pago DATE NOT NULL,
-    metodo VARCHAR(100) NOT NULL,
-    nota TEXT NULL,
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-$conn->query($createPagosTable);
-
-$columnCheck = $conn->query("SHOW COLUMNS FROM pagos LIKE 'nota'");
-if($columnCheck && $columnCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE pagos ADD nota TEXT NULL AFTER metodo");
-}
 if (!asegurarTokensComprobante($conn)) {
     die('No se pudo preparar el acceso seguro a los comprobantes.');
 }
 
-$payment_saved = false;
-$payment_id = 0;
-$payment_data = null;
+$payment_error = '';
 $id_reserva = 0;
 
 // Registrar pago
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_pago'])) {
     $id_reserva = isset($_POST['id_reserva']) ? (int)$_POST['id_reserva'] : 0;
-    $fecha_pago = isset($_POST['fecha_pago']) ? $conn->real_escape_string($_POST['fecha_pago']) : date('Y-m-d');
+    $fecha_pago = isset($_POST['fecha_pago']) && is_string($_POST['fecha_pago']) ? trim($_POST['fecha_pago']) : date('Y-m-d');
     $monto_pago = isset($_POST['monto_pago']) ? (float)$_POST['monto_pago'] : 0.00;
-    $metodo_pago = isset($_POST['metodo_pago']) ? $conn->real_escape_string($_POST['metodo_pago']) : 'Efectivo';
-    $nota_pago = isset($_POST['nota_pago']) ? $conn->real_escape_string($_POST['nota_pago']) : '';
+    $metodo_pago = isset($_POST['metodo_pago']) && is_string($_POST['metodo_pago']) ? trim($_POST['metodo_pago']) : 'Efectivo';
+    $nota_pago = isset($_POST['nota_pago']) && is_string($_POST['nota_pago']) ? trim($_POST['nota_pago']) : '';
     $id_usuario = (int)$_SESSION['usuario_id'];
     $token_comprobante = bin2hex(random_bytes(32));
 
-    if($id_reserva > 0 && $id_usuario > 0) {
-        $insert = $conn->prepare("INSERT INTO pagos (id_reserva, id_usuario, monto, fecha_pago, metodo, nota, token_comprobante) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $insert->bind_param('iidssss', $id_reserva, $id_usuario, $monto_pago, $fecha_pago, $metodo_pago, $nota_pago, $token_comprobante);
-        if($insert->execute()) {
-            $payment_id = $insert->insert_id;
-            $conn->query("UPDATE reservas SET estado = 'completada' WHERE id_reserva = $id_reserva");
-            $insert->close();
-            header('Location: pagos_servicio.php?id_reserva=' . $id_reserva . '&last_payment=' . $payment_id);
-            exit();
+    $fecha_pago_objeto = DateTime::createFromFormat('!Y-m-d', $fecha_pago);
+    if ($id_reserva <= 0 || $id_usuario <= 0) {
+        $payment_error = 'No se pudo identificar la reserva para registrar el pago.';
+    } elseif (!$fecha_pago_objeto || $fecha_pago_objeto->format('Y-m-d') !== $fecha_pago) {
+        $payment_error = 'Selecciona una fecha de cobro válida.';
+    } elseif ($monto_pago <= 0) {
+        $payment_error = 'El monto del pago debe ser mayor que cero.';
+    } elseif ($metodo_pago === '' || strlen($metodo_pago) > 100 || strlen($nota_pago) > 5000) {
+        $payment_error = 'Revisa el método de pago y las notas del comprobante.';
+    } elseif (!$conn->begin_transaction()) {
+        $payment_error = 'No se pudo iniciar el registro del pago.';
+    } else {
+        $reserva_lock = $conn->prepare('SELECT id_reserva FROM reservas WHERE id_reserva = ? FOR UPDATE');
+        if (!$reserva_lock) {
+            $conn->rollback();
+            $payment_error = 'No se pudo validar la reserva: ' . $conn->error;
+        } else {
+            $reserva_lock->bind_param('i', $id_reserva);
+            if (!$reserva_lock->execute()) {
+                $payment_error = 'No se pudo validar la reserva: ' . $reserva_lock->error;
+                $reserva_lock->close();
+                $conn->rollback();
+            } else {
+                $reserva_valida = $reserva_lock->get_result()->fetch_assoc();
+                $reserva_lock->close();
+                if (!$reserva_valida) {
+                    $conn->rollback();
+                    $payment_error = 'La reserva ya no existe.';
+                } else {
+                    $pago_existente_stmt = $conn->prepare('SELECT id_pago FROM pagos WHERE id_reserva = ? ORDER BY id_pago DESC LIMIT 1');
+                    if (!$pago_existente_stmt) {
+                        $conn->rollback();
+                        $payment_error = 'No se pudo comprobar si la reserva ya tiene un pago: ' . $conn->error;
+                    } else {
+                        $pago_existente_stmt->bind_param('i', $id_reserva);
+                        if (!$pago_existente_stmt->execute()) {
+                            $payment_error = 'No se pudo comprobar si la reserva ya tiene un pago: ' . $pago_existente_stmt->error;
+                            $pago_existente_stmt->close();
+                            $conn->rollback();
+                        } else {
+                            $pago_existente = $pago_existente_stmt->get_result()->fetch_assoc();
+                            $pago_existente_stmt->close();
+                            if ($pago_existente) {
+                                $conn->rollback();
+                                header('Location: factura_ver.php?id=' . (int)$pago_existente['id_pago'], true, 303);
+                                exit();
+                            }
+
+                            $insert = $conn->prepare("INSERT INTO pagos (id_empresa, id_reserva, id_usuario, monto, fecha_pago, metodo, nota, token_comprobante) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                            if (!$insert) {
+                                $conn->rollback();
+                                $payment_error = 'No se pudo preparar el registro del pago: ' . $conn->error;
+                            } else {
+                                $insert->bind_param('iiidssss', $id_empresa_actual, $id_reserva, $id_usuario, $monto_pago, $fecha_pago, $metodo_pago, $nota_pago, $token_comprobante);
+                                if (!$insert->execute()) {
+                                    $payment_error = 'No se pudo guardar el pago: ' . $insert->error;
+                                    $insert->close();
+                                    $conn->rollback();
+                                } else {
+                                    $payment_id = (int)$insert->insert_id;
+                                    $insert->close();
+                                    $actualizar_reserva = $conn->prepare("UPDATE reservas SET estado = 'completada' WHERE id_reserva = ?");
+                                    if (!$actualizar_reserva) {
+                                        $payment_error = 'No se pudo completar la reserva: ' . $conn->error;
+                                        $conn->rollback();
+                                    } else {
+                                        $actualizar_reserva->bind_param('i', $id_reserva);
+                                        if (!$actualizar_reserva->execute()) {
+                                            $payment_error = 'No se pudo completar la reserva: ' . $actualizar_reserva->error;
+                                            $actualizar_reserva->close();
+                                            $conn->rollback();
+                                        } else {
+                                            $actualizar_reserva->close();
+                                            if (!$conn->commit()) {
+                                                $payment_error = 'No se pudo confirmar el pago y generar el comprobante.';
+                                            } else {
+                                                header('Location: factura_ver.php?id=' . $payment_id, true, 303);
+                                                exit();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        $insert->close();
     }
 }
 
@@ -339,23 +404,6 @@ if(!$result || $result->num_rows == 0) {
 }
 $reserva = $result->fetch_assoc();
 
-if(!$payment_id && isset($_GET['last_payment'])) {
-    $payment_id = (int)$_GET['last_payment'];
-}
-
-if($payment_id > 0) {
-    $receiptResult = $conn->query("SELECT p.*, r.id_reserva, r.fecha_reserva, r.hora_reserva, s.nombre_servicio, s.precio, x.nombre as paciente_nombre, x.apellido as paciente_apellido, x.cedula, x.telefono, x.email 
-        FROM pagos p 
-        JOIN reservas r ON p.id_reserva = r.id_reserva 
-        JOIN servicios s ON r.id_servicio = s.id_servicio 
-        JOIN pacientes x ON r.id_paciente = x.id_paciente 
-        WHERE p.id_pago = $payment_id");
-    if($receiptResult && $receiptResult->num_rows > 0) {
-        $payment_data = $receiptResult->fetch_assoc();
-        $payment_saved = true;
-    }
-}
-
 $payment_history = [];
 $historyResult = $conn->query("SELECT p.*, u.nombre as usuario_nombre FROM pagos p JOIN usuarios u ON p.id_usuario = u.id_usuario WHERE p.id_reserva = $id_reserva ORDER BY p.fecha_pago DESC");
 if($historyResult) {
@@ -363,6 +411,7 @@ if($historyResult) {
         $payment_history[] = $row;
     }
 }
+$ultimo_pago_reserva = !empty($payment_history) ? $payment_history[0] : null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -390,17 +439,32 @@ if($historyResult) {
             margin-bottom: 20px;
         }
         @media print {
+            @page { size: A4 portrait; margin: 12mm; }
+            body * {
+                visibility: hidden !important;
+            }
             .nav-lateral, .navbar-info, .page-header, .page-nav-tabs, .form-pago-col, .btn-print-hide {
                 display: none !important;
             }
-            .page-content {
+            .main-container, .page-content {
+                display: block !important;
+                width: 100% !important;
+                min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
             }
             .receipt-box {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
                 border: 1px solid #000 !important;
                 box-shadow: none !important;
+            }
+            .receipt-box, .receipt-box * {
+                visibility: visible !important;
             }
         }
     </style>
@@ -507,17 +571,22 @@ if($historyResult) {
                 <a href="reservas.php" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Volver a Reservas</a>
             </div>
 
-            <?php if($payment_saved): ?>
+            <?php if($payment_error !== ''): ?>
                 <div class="container-fluid btn-print-hide">
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <strong>Pago registrado.</strong> Ya puede abrir, imprimir o compartir el comprobante con el paciente.
-                        <a class="alert-link ml-2" href="factura_ver.php?token=<?php echo urlencode($payment_data['token_comprobante']); ?>" target="_blank" rel="noopener">Abrir comprobante del paciente</a>
-                        <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
-                    </div>
+                    <div class="alert alert-danger" role="alert"><?php echo htmlspecialchars($payment_error, ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
             <?php endif; ?>
 
             <div class="container-fluid">
+                <?php if($ultimo_pago_reserva): ?>
+                    <div class="receipt-box">
+                        <h4 class="mb-2" style="color:#003366;font-weight:800;">Esta cita ya tiene un pago registrado</h4>
+                        <p class="mb-3">Para evitar comprobantes duplicados, esta reserva no admite otro cobro. Abre el único comprobante para imprimirlo o descargarlo en PDF.</p>
+                        <a href="factura_ver.php?id=<?php echo (int)$ultimo_pago_reserva['id_pago']; ?>" class="btn btn-primary">
+                            <i class="fas fa-file-invoice" aria-hidden="true"></i> Ver, imprimir o descargar comprobante
+                        </a>
+                    </div>
+                <?php else: ?>
                 <div class="row">
                     <!-- Formulario de Registro de Pago -->
                     <div class="col-lg-5 mb-4 form-pago-col">
@@ -639,14 +708,15 @@ if($historyResult) {
                             <?php endif; ?>
 
                             <div class="receipt-footer text-center pt-3 border-top btn-print-hide">
-                                <button type="button" class="btn btn-primary btn-lg mr-2" onclick="window.print();">
-                                    <i class="fas fa-print"></i> Imprimir Comprobante
-                                </button>
+                                <p class="text-muted mb-0">Al guardar el pago se abrirá el comprobante único, listo para imprimir o descargar en PDF.</p>
+                            </div>
+                            <div class="receipt-footer text-center pt-3 btn-print-hide">
                                 <a href="reservas.php" class="btn btn-secondary btn-lg">
                                     <i class="fas fa-check"></i> Finalizar
                                 </a>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

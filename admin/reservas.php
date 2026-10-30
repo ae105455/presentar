@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/payment_helpers.php';
+require_once __DIR__ . '/attendance_helpers.php';
 
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
@@ -11,22 +13,80 @@ $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
-$createPagosTable = "CREATE TABLE IF NOT EXISTS pagos (
-    id_pago INT AUTO_INCREMENT PRIMARY KEY,
-    id_reserva INT NOT NULL,
-    id_usuario INT NOT NULL,
-    monto DECIMAL(10,2) NOT NULL,
-    fecha_pago DATE NOT NULL,
-    metodo VARCHAR(100) NOT NULL,
-    nota TEXT NULL,
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-if(!$conn->query($createPagosTable)) {
-    die("Error al preparar la tabla de pagos: " . $conn->error);
+try {
+    asegurarTablaPagos($conn);
+    asegurarEstadoAtencionReservas($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
 }
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
+$csrf_estado_atencion = isset($_SESSION['csrf_estado_atencion'])
+    ? $_SESSION['csrf_estado_atencion']
+    : bin2hex(random_bytes(32));
+$_SESSION['csrf_estado_atencion'] = $csrf_estado_atencion;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_atencion'])) {
+    $csrf_recibido = isset($_POST['csrf_token']) && is_string($_POST['csrf_token']) ? $_POST['csrf_token'] : '';
+    $id_reserva_atencion = isset($_POST['id_reserva']) ? (int)$_POST['id_reserva'] : 0;
+    $estado_atencion = isset($_POST['estado_atencion']) && is_string($_POST['estado_atencion'])
+        ? $_POST['estado_atencion']
+        : '';
+    $estados_atencion_validos = array('pendiente', 'atendida', 'no_asistio');
+
+    if (!hash_equals($csrf_estado_atencion, $csrf_recibido)) {
+        $_SESSION['mensaje_atencion'] = 'La sesión venció. Recarga la página e inténtalo nuevamente.';
+        $_SESSION['tipo_mensaje_atencion'] = 'danger';
+    } elseif ($id_reserva_atencion <= 0 || !in_array($estado_atencion, $estados_atencion_validos, true)) {
+        $_SESSION['mensaje_atencion'] = 'Selecciona un estado de atención válido.';
+        $_SESSION['tipo_mensaje_atencion'] = 'danger';
+    } else {
+        $verificar_cita = $conn->prepare("SELECT id_reserva FROM reservas WHERE id_reserva = ? AND estado <> 'cancelada'");
+        if (!$verificar_cita) {
+            $_SESSION['mensaje_atencion'] = 'No se pudo validar la cita: ' . $conn->error;
+            $_SESSION['tipo_mensaje_atencion'] = 'danger';
+        } else {
+            $verificar_cita->bind_param('i', $id_reserva_atencion);
+            $verificar_cita->execute();
+            $cita_valida = $verificar_cita->get_result()->fetch_assoc();
+            $verificar_cita->close();
+            if (!$cita_valida) {
+                $_SESSION['mensaje_atencion'] = 'La cita no existe o fue cancelada; no se puede actualizar su asistencia.';
+                $_SESSION['tipo_mensaje_atencion'] = 'danger';
+            }
+        }
+
+        if (isset($cita_valida) && $cita_valida) {
+            $actualizar_atencion = $conn->prepare("UPDATE reservas SET estado_atencion = ? WHERE id_reserva = ? AND estado <> 'cancelada'");
+            if (!$actualizar_atencion) {
+                $_SESSION['mensaje_atencion'] = 'No se pudo preparar la actualización: ' . $conn->error;
+                $_SESSION['tipo_mensaje_atencion'] = 'danger';
+            } else {
+                $actualizar_atencion->bind_param('si', $estado_atencion, $id_reserva_atencion);
+                if ($actualizar_atencion->execute()) {
+                    $_SESSION['mensaje_atencion'] = 'Se actualizó el control de atención de la cita #' . $id_reserva_atencion . '.';
+                    $_SESSION['tipo_mensaje_atencion'] = 'success';
+                } else {
+                    $_SESSION['mensaje_atencion'] = 'No se pudo guardar el estado de atención: ' . $actualizar_atencion->error;
+                    $_SESSION['tipo_mensaje_atencion'] = 'danger';
+                }
+                $actualizar_atencion->close();
+            }
+        } elseif (!isset($cita_valida)) {
+            $_SESSION['mensaje_atencion'] = 'No se pudo validar la cita; inténtalo nuevamente.';
+            $_SESSION['tipo_mensaje_atencion'] = 'danger';
+        }
+    }
+
+    header('Location: reservas.php', true, 303);
+    exit();
+}
+
+$mensaje_atencion = isset($_SESSION['mensaje_atencion']) ? $_SESSION['mensaje_atencion'] : '';
+$tipo_mensaje_atencion = isset($_SESSION['tipo_mensaje_atencion']) ? $_SESSION['tipo_mensaje_atencion'] : 'success';
+unset($_SESSION['mensaje_atencion'], $_SESSION['tipo_mensaje_atencion']);
 
 $sql = "SELECT r.*, 
         p.nombre as paciente_nombre, 
@@ -61,7 +121,7 @@ $resultado = $conn->query($sql);
     <link rel="stylesheet" href="./css/bootstrap.min.css">
     <link rel="stylesheet" href="./css/all.css">
     <link rel="stylesheet" href="./css/sweetalert2.min.css">
-    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="./css/style.css?v=<?php echo filemtime(__DIR__ . '/css/style.css'); ?>">
 </head>
 <body>
     
@@ -158,10 +218,15 @@ $resultado = $conn->query($sql);
 
             <div class="page-header">
                 <h3><i class="fas fa-calendar-alt"></i> LISTA DE RESERVAS</h3>
-                <p>Consulte el cronograma general de consultas, tratamientos y citas agendadas.</p>
+                <p>Revise las citas, el estado del pago y registre si cada paciente fue atendido.</p>
             </div>
 
             <div class="container-fluid">
+                <?php if ($mensaje_atencion !== ''): ?>
+                    <div class="alert alert-<?php echo htmlspecialchars($tipo_mensaje_atencion, ENT_QUOTES, 'UTF-8'); ?>" role="status">
+                        <?php echo htmlspecialchars($mensaje_atencion, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
                 <ul class="page-nav-tabs">
                     <li><a href="reserva_nueva.php"><i class="fas fa-plus"></i> NUEVA RESERVA</a></li>
                     <li><a class="active" href="reservas.php"><i class="fas fa-clipboard-list"></i> LISTA DE RESERVAS</a></li>
@@ -173,7 +238,10 @@ $resultado = $conn->query($sql);
             <div class="container-fluid">
                 <div class="table-container">
                     <div class="table-container-header">
-                        <h5 class="table-container-title"><i class="fas fa-calendar-check text-primary"></i> Todas las Citas Registradas</h5>
+                        <div>
+                            <h5 class="table-container-title"><i class="fas fa-calendar-check text-primary"></i> Todas las Citas Registradas</h5>
+                            <small class="text-muted">Toca una opción para registrar la asistencia. Este dato no cambia el pago.</small>
+                        </div>
                         <a href="reserva_nueva.php" class="btn btn-sm btn-success"><i class="fas fa-plus"></i> Agendar Nueva Cita</a>
                     </div>
                     <div class="table-responsive">
@@ -185,9 +253,10 @@ $resultado = $conn->query($sql);
                                     <th>SERVICIO</th>
                                     <th>FECHA CITA</th>
                                     <th>HORA</th>
-                                    <th>ESTADO</th>
+                                    <th>ESTADO DE CITA</th>
+                                    <th>REGISTRO DE ATENCIÓN</th>
                                     <th>PAGO</th>
-                                    <th>ATENDIDO POR</th>
+                                    <th>REGISTRÓ CITA</th>
                                     <th>ACCIONES</th>
                                 </tr>
                             </thead>
@@ -203,7 +272,7 @@ $resultado = $conn->query($sql);
                                             case 'cancelada': $badge_class = 'badge-cancelada'; break;
                                         }
                                         ?>
-                                        <tr>
+                                        <tr id="cita-<?php echo (int)$row['id_reserva']; ?>">
                                             <td><strong>#<?php echo $row['id_reserva']; ?></strong></td>
                                             <td>
                                                 <i class="fas fa-user-circle text-muted mr-1"></i>
@@ -213,6 +282,49 @@ $resultado = $conn->query($sql);
                                             <td><?php echo date('d/m/Y', strtotime($row['fecha_reserva'])); ?></td>
                                             <td><strong><?php echo substr($row['hora_reserva'], 0, 5); ?></strong></td>
                                             <td><span class="<?php echo $badge_class; ?>"><?php echo ucfirst($row['estado']); ?></span></td>
+                                            <td>
+                                                <?php
+                                                $estado_atencion = isset($row['estado_atencion']) ? $row['estado_atencion'] : 'pendiente';
+                                                $opciones_atencion = array(
+                                                    'pendiente' => 'Pendiente',
+                                                    'atendida' => 'Atendido',
+                                                    'no_asistio' => 'No asistió'
+                                                );
+                                                ?>
+                                                <div class="attendance-cell">
+                                                    <?php if ($row['estado'] !== 'cancelada'): ?>
+                                                        <form method="post" class="attendance-actions" aria-label="Registrar atención de <?php echo htmlspecialchars($row['paciente_nombre'] . ' ' . $row['paciente_apellido'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_estado_atencion, ENT_QUOTES, 'UTF-8'); ?>">
+                                                            <input type="hidden" name="actualizar_atencion" value="1">
+                                                            <input type="hidden" name="id_reserva" value="<?php echo (int)$row['id_reserva']; ?>">
+                                                            <?php foreach ($opciones_atencion as $valor_atencion => $texto_atencion): ?>
+                                                                <?php
+                                                                $icono_atencion = $valor_atencion === 'atendida'
+                                                                    ? 'fa-user-check'
+                                                                    : ($valor_atencion === 'no_asistio' ? 'fa-user-times' : 'fa-clock');
+                                                                $clase_opcion = $valor_atencion === $estado_atencion
+                                                                    ? 'attendance-option attendance-option-current attendance-option-' . $valor_atencion
+                                                                    : 'attendance-option';
+                                                                ?>
+                                                                <button
+                                                                    type="submit"
+                                                                    class="<?php echo $clase_opcion; ?>"
+                                                                    name="estado_atencion"
+                                                                    value="<?php echo htmlspecialchars($valor_atencion, ENT_QUOTES, 'UTF-8'); ?>"
+                                                                    aria-pressed="<?php echo $valor_atencion === $estado_atencion ? 'true' : 'false'; ?>"
+                                                                    <?php echo $valor_atencion === $estado_atencion ? 'disabled' : ''; ?>
+                                                                >
+                                                                    <i class="fas <?php echo $icono_atencion; ?>" aria-hidden="true"></i>
+                                                                    <?php echo htmlspecialchars($texto_atencion, ENT_QUOTES, 'UTF-8'); ?>
+                                                                </button>
+                                                            <?php endforeach; ?>
+                                                        </form>
+                                                        <small class="attendance-hint">Elige una opción para guardar</small>
+                                                    <?php else: ?>
+                                                        <span class="attendance-badge attendance-missed"><i class="fas fa-ban" aria-hidden="true"></i> Cita cancelada</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
                                             <td>
                                                 <?php if($row['ultimo_pago_id']): ?>
                                                     <span class="badge badge-success">Pagado · Bs. <?php echo number_format((float)$row['total_pagado'], 2); ?></span>
@@ -248,7 +360,7 @@ $resultado = $conn->query($sql);
                                     <?php endwhile; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="9" class="text-center py-4 text-muted">
+                                        <td colspan="10" class="text-center py-4 text-muted">
                                             <i class="fas fa-calendar-times fa-2x mb-2 d-block"></i>
                                             No hay citas o reservas registradas en el sistema.
                                         </td>

@@ -48,6 +48,14 @@ def prepare_html(source: Path, destination: Path) -> None:
         flags=re.IGNORECASE | re.DOTALL,
     )
     content = re.sub(
+        r'<!--\s*={3,}\s*CONTACTO\s*={3,}\s*-->\s*'
+        r'<section\b[^>]*id=["\']contacto["\'][^>]*>.*?</section>',
+        "",
+        content,
+        count=1,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    content = re.sub(
         r'<script>\s*\(function \(\) \{\s*const form = document\.getElementById\('
         r"'form-reserva'\).*?</script>",
         "",
@@ -62,6 +70,16 @@ def prepare_html(source: Path, destination: Path) -> None:
         '<a class="btn-reservar" href="https://wa.me/59177534284" target="_blank" '
         'rel="noopener noreferrer">Contactar por WhatsApp</a></div>',
         content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    content = re.sub(
+        r'<section\b[^>]*id=["\']reclamo["\'][^>]*>.*?</section>',
+        '<section id="reclamo" class="reclamo-section"><div class="container"><div class="paso-card">'
+        '<p>Para enviar un reclamo en esta versión de demostración, contáctanos por WhatsApp.</p>'
+        '<a class="btn-reservar" href="https://wa.me/59177534284" target="_blank" '
+        'rel="noopener noreferrer">Enviar reclamo por WhatsApp</a></div></div></section>',
+        content,
+        count=1,
         flags=re.IGNORECASE | re.DOTALL,
     )
     destination.parent.mkdir(parents=True, exist_ok=True)

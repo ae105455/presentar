@@ -1,14 +1,6 @@
 <?php
-session_start();
-if(!isset($_SESSION['usuario_id'])) {
-    header("Location: index.php");
-    exit();
-}
-
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
-if ($conn->connect_error) {
-    die("Error de conexión: " . $conn->connect_error);
-}
+header('Location: ../../admin/mensajes.php', true, 303);
+exit();
 
 // Crear tabla si no existe
 $conn->query("CREATE TABLE IF NOT EXISTS mensajes_contacto (

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/attendance_helpers.php';
 
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
@@ -10,6 +11,12 @@ if(!isset($_SESSION['usuario_id'])) {
 $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
+}
+try {
+    asegurarEstadoAtencionReservas($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
 }
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
@@ -57,10 +64,13 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
     $fecha_reserva = $_POST['fecha_reserva'];
     $hora_reserva = $_POST['hora_reserva'];
     $estado = $_POST['estado'];
+    $estado_atencion = isset($_POST['estado_atencion']) ? $_POST['estado_atencion'] : 'pendiente';
     $observaciones = trim($_POST['observaciones']);
     
     if($id_paciente <= 0 || $id_servicio <= 0) {
         $error = "Debe seleccionar un paciente y un servicio.";
+    } elseif (!in_array($estado_atencion, array('pendiente', 'atendida', 'no_asistio'), true)) {
+        $error = "Selecciona un estado de atención válido.";
     } elseif(empty($fecha_reserva) || empty($hora_reserva)) {
         $error = "La fecha y hora de la reserva son obligatorias.";
     } else {
@@ -72,8 +82,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
         if($check->num_rows > 0) {
             $error = "Ya existe otra cita médica registrada en ese mismo horario.";
         } else {
-            $stmt = $conn->prepare("UPDATE reservas SET id_paciente = ?, id_servicio = ?, fecha_reserva = ?, hora_reserva = ?, estado = ?, observaciones = ? WHERE id_reserva = ?");
-            $stmt->bind_param("iissssi", $id_paciente, $id_servicio, $fecha_reserva, $hora_reserva, $estado, $observaciones, $id_reserva);
+            $stmt = $conn->prepare("UPDATE reservas SET id_paciente = ?, id_servicio = ?, fecha_reserva = ?, hora_reserva = ?, estado = ?, estado_atencion = ?, observaciones = ? WHERE id_reserva = ?");
+            $stmt->bind_param("iisssssi", $id_paciente, $id_servicio, $fecha_reserva, $hora_reserva, $estado, $estado_atencion, $observaciones, $id_reserva);
             
             if($stmt->execute()) {
                 $exito = "Reserva actualizada exitosamente.";
@@ -287,12 +297,21 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
                                             <select class="form-control" id="estado" name="estado">
                                                 <option value="pendiente" <?php echo ($reserva['estado'] == 'pendiente') ? 'selected' : ''; ?>>Pendiente</option>
                                                 <option value="confirmada" <?php echo ($reserva['estado'] == 'confirmada') ? 'selected' : ''; ?>>Confirmada</option>
-                                                <option value="atendida" <?php echo ($reserva['estado'] == 'atendida') ? 'selected' : ''; ?>>Atendida</option>
-                                                <option value="completada" <?php echo ($reserva['estado'] == 'completada') ? 'selected' : ''; ?>>Completada (Pagada)</option>
+                                                <option value="completada" <?php echo ($reserva['estado'] == 'completada') ? 'selected' : ''; ?>>Completada (pago registrado)</option>
                                                 <option value="cancelada" <?php echo ($reserva['estado'] == 'cancelada') ? 'selected' : ''; ?>>Cancelada</option>
                                             </select>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="estado_atencion">Asistencia y atención del paciente</label>
+                                    <select class="form-control" id="estado_atencion" name="estado_atencion">
+                                        <option value="pendiente" <?php echo ($reserva['estado_atencion'] ?? 'pendiente') === 'pendiente' ? 'selected' : ''; ?>>Pendiente de atención</option>
+                                        <option value="atendida" <?php echo ($reserva['estado_atencion'] ?? '') === 'atendida' ? 'selected' : ''; ?>>Paciente atendido</option>
+                                        <option value="no_asistio" <?php echo ($reserva['estado_atencion'] ?? '') === 'no_asistio' ? 'selected' : ''; ?>>Paciente no asistió</option>
+                                    </select>
+                                    <small class="form-text text-muted">Este dato es independiente del estado del pago.</small>
                                 </div>
 
                                 <div class="form-group">

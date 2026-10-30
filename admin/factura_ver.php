@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/payment_helpers.php';
 
 session_start();
 $token_comprobante = isset($_GET['token']) ? trim($_GET['token']) : '';
@@ -12,6 +13,12 @@ if(!$es_comprobante_publico && !isset($_SESSION['usuario_id'])) {
 $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
+}
+try {
+    asegurarTablaPagos($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
 }
 require_once __DIR__ . '/comprobante_helpers.php';
 if (!$es_comprobante_publico && !asegurarTokensComprobante($conn)) {
@@ -37,14 +44,16 @@ if(!$es_comprobante_publico && $id_pago <= 0) {
 // Obtener datos completos del pago
 $sql = "SELECT p.*,
         CONCAT('FAC-', LPAD(p.id_pago, 6, '0')) as num_factura,
-        r.id_reserva, r.fecha_reserva, r.hora_reserva, r.estado as estado_reserva, r.observaciones,
+        r.fecha_reserva, r.hora_reserva, r.estado as estado_reserva, r.observaciones,
         x.nombre as paciente_nombre, x.apellido as paciente_apellido, x.cedula, x.telefono, x.email, x.direccion,
         s.nombre_servicio, s.precio as precio_servicio, s.duracion_minutos,
-        u.nombre as cajero_nombre, u.email as cajero_email
+        u.nombre as cajero_nombre, u.email as cajero_email,
+        e.nombre as empresa_nombre, e.email as empresa_email, e.telefono as empresa_telefono, e.direccion as empresa_direccion
         FROM pagos p
-        JOIN reservas r ON p.id_reserva = r.id_reserva
-        JOIN pacientes x ON r.id_paciente = x.id_paciente
-        JOIN servicios s ON r.id_servicio = s.id_servicio
+        JOIN empresa e ON e.id_empresa = p.id_empresa
+        LEFT JOIN reservas r ON p.id_reserva = r.id_reserva
+        LEFT JOIN pacientes x ON r.id_paciente = x.id_paciente
+        LEFT JOIN servicios s ON r.id_servicio = s.id_servicio
         JOIN usuarios u ON p.id_usuario = u.id_usuario
         WHERE " . ($es_comprobante_publico ? "p.token_comprobante = '" . $conn->real_escape_string($token_comprobante) . "'" : "p.id_pago = $id_pago");
 
@@ -58,15 +67,27 @@ if(!$result || $result->num_rows == 0) {
     exit();
 }
 $pago = $result->fetch_assoc();
+$tiene_reserva = !empty($pago['id_reserva']) && !empty($pago['fecha_reserva']);
+$nombre_paciente = trim((string)($pago['paciente_apellido'] ?? '') . ' ' . (string)($pago['paciente_nombre'] ?? ''));
+$nombre_paciente = $nombre_paciente !== '' ? $nombre_paciente : 'Sin reserva asociada';
+$nombre_servicio = trim((string)($pago['nombre_servicio'] ?? ''));
+$nombre_servicio = $nombre_servicio !== '' ? $nombre_servicio : 'Pago sin reserva asociada';
+$fecha_servicio = $tiene_reserva ? $pago['fecha_reserva'] : $pago['fecha_pago'];
 
-// Datos de la empresa
-$empresa = $conn->query("SELECT * FROM empresa LIMIT 1")->fetch_assoc();
-$empresa_nombre = $empresa['nombre'] ?? 'Centro Auditivo AureaMed';
-$empresa_ruc = $empresa['ruc'] ?? 'RUC: 000000000001';
-$empresa_telefono = $empresa['telefono'] ?? '+593 99 000 0000';
-$empresa_email = $empresa['email'] ?? 'info@aureamed.com';
-$empresa_direccion = $empresa['direccion'] ?? 'Guayaquil, Ecuador';
-$empresa_web = $empresa['web'] ?? 'www.aureamed.com';
+// El comprobante usa la empresa vinculada al pago, sin inventar datos fiscales o de contacto.
+$empresa_nombre = trim((string)$pago['empresa_nombre']);
+if ($empresa_nombre === '') {
+    $empresa_nombre = 'Centro Auditivo AureaMed';
+}
+$empresa_telefono = trim((string)$pago['empresa_telefono']);
+$empresa_email = trim((string)$pago['empresa_email']);
+$empresa_direccion = trim((string)$pago['empresa_direccion']);
+$datos_contacto_empresa = array_values(array_filter(
+    array($empresa_direccion, $empresa_telefono, $empresa_email),
+    static function ($dato) {
+        return $dato !== '';
+    }
+));
 
 if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
     require_once __DIR__ . '/REPPDF/libs/fpdf/fpdf.php';
@@ -128,7 +149,7 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
     $pdf->SetTextColor(51, 65, 85);
     $pdf->SetFont('Arial', '', 9);
     $pdf->SetX(22);
-    $pdf->MultiCell(75, 5, $toPdfText($empresa_nombre . "\n" . $empresa_ruc . "\n" . $empresa_direccion . "\n" . $empresa_telefono));
+    $pdf->MultiCell(75, 5, $toPdfText(implode("\n", array_merge(array($empresa_nombre), $datos_contacto_empresa))));
     $pdf->SetTextColor(125, 42, 42);
     $pdf->SetFont('Arial', 'B', 9);
     $pdf->SetXY(113, 65);
@@ -136,7 +157,7 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
     $pdf->SetTextColor(51, 65, 85);
     $pdf->SetFont('Arial', '', 9);
     $pdf->SetX(113);
-    $pdf->MultiCell(75, 5, $toPdfText($pago['paciente_apellido'] . ' ' . $pago['paciente_nombre'] . "\nCedula: " . $pago['cedula'] . "\n" . ($pago['telefono'] ?: '')));
+    $pdf->MultiCell(75, 5, $toPdfText($nombre_paciente . "\nCedula: " . ($pago['cedula'] ?: '—') . "\n" . ($pago['telefono'] ?: '')));
 
     $pdf->SetFillColor(125, 42, 42);
     $pdf->SetTextColor(255, 255, 255);
@@ -148,8 +169,8 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
     $pdf->SetTextColor(51, 65, 85);
     $pdf->SetFont('Arial', '', 9);
     $pdf->SetX(17);
-    $pdf->Cell(82, 12, $toPdfText($pago['nombre_servicio']), 1, 0, 'L');
-    $pdf->Cell(47, 12, date('d/m/Y', strtotime($pago['fecha_reserva'])), 1, 0, 'C');
+    $pdf->Cell(82, 12, $toPdfText($nombre_servicio), 1, 0, 'L');
+    $pdf->Cell(47, 12, date('d/m/Y', strtotime($fecha_servicio)), 1, 0, 'C');
     $pdf->Cell(47, 12, $toPdfText('Bs. ' . number_format((float)$pago['monto'], 2)), 1, 1, 'R');
 
     $pdf->SetFillColor(125, 42, 42);
@@ -874,9 +895,15 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
                             </div>
                             <div class="invoice-brand-sub"><?php echo htmlspecialchars($empresa_nombre); ?></div>
                             <div class="invoice-brand-contact">
-                                <i class="fas fa-map-marker-alt" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_direccion); ?><br>
-                                <i class="fas fa-phone" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_telefono); ?><br>
-                                <i class="fas fa-envelope" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_email); ?>
+                                <?php if ($empresa_direccion !== ''): ?>
+                                    <i class="fas fa-map-marker-alt" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_direccion, ENT_QUOTES, 'UTF-8'); ?><br>
+                                <?php endif; ?>
+                                <?php if ($empresa_telefono !== ''): ?>
+                                    <i class="fas fa-phone" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_telefono, ENT_QUOTES, 'UTF-8'); ?><br>
+                                <?php endif; ?>
+                                <?php if ($empresa_email !== ''): ?>
+                                    <i class="fas fa-envelope" style="width:16px;"></i> <?php echo htmlspecialchars($empresa_email, ENT_QUOTES, 'UTF-8'); ?>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="invoice-title-block">
@@ -899,16 +926,17 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
                                 <div class="party-box-label"><i class="fas fa-building"></i> &nbsp; Centro de atención</div>
                                 <div class="party-box-name"><?php echo htmlspecialchars($empresa_nombre); ?></div>
                                 <div class="party-box-detail">
-                                    <?php echo htmlspecialchars($empresa_ruc); ?><br>
-                                    <?php echo htmlspecialchars($empresa_direccion); ?><br>
-                                    <?php echo htmlspecialchars($empresa_telefono); ?>
+                                    <?php foreach ($datos_contacto_empresa as $indice => $dato_contacto): ?>
+                                        <?php if ($indice > 0): ?><br><?php endif; ?>
+                                        <?php echo htmlspecialchars($dato_contacto, ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                             <div class="party-box">
                                 <div class="party-box-label"><i class="fas fa-user"></i> &nbsp; Paciente</div>
-                                <div class="party-box-name"><?php echo htmlspecialchars($pago['paciente_apellido'] . ' ' . $pago['paciente_nombre']); ?></div>
+                                <div class="party-box-name"><?php echo htmlspecialchars($nombre_paciente); ?></div>
                                 <div class="party-box-detail">
-                                    <strong>Cédula:</strong> <?php echo htmlspecialchars($pago['cedula']); ?><br>
+                                    <strong>Cédula:</strong> <?php echo htmlspecialchars((string)($pago['cedula'] ?? '—')); ?><br>
                                     <?php if(!empty($pago['telefono'])): ?><strong>Tel:</strong> <?php echo htmlspecialchars($pago['telefono']); ?><br><?php endif; ?>
                                     <?php if(!empty($pago['email'])): ?><?php echo htmlspecialchars($pago['email']); ?><?php endif; ?>
                                 </div>
@@ -920,19 +948,19 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
                             <thead>
                                 <tr>
                                     <th>Servicio</th>
-                                    <th style="text-align:center;">Fecha de atención</th>
+                                    <th style="text-align:center;"><?php echo $tiene_reserva ? 'Fecha de atención' : 'Fecha de pago'; ?></th>
                                     <th style="text-align:right;">Importe pagado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td>
-                                        <strong style="color:#0f172a;"><?php echo htmlspecialchars($pago['nombre_servicio']); ?></strong><br>
-                                        <small style="color:#64748b;">Servicio de AureaMed</small>
+                                        <strong style="color:#0f172a;"><?php echo htmlspecialchars($nombre_servicio); ?></strong><br>
+                                        <?php if($tiene_reserva): ?><small style="color:#64748b;">Servicio de AureaMed</small><?php endif; ?>
                                     </td>
                                     <td style="text-align:center;color:#475569;">
-                                        <?php echo date('d/m/Y', strtotime($pago['fecha_reserva'])); ?>
-                                        <?php if($pago['hora_reserva']): ?><br><small><?php echo date('H:i', strtotime($pago['hora_reserva'])); ?></small><?php endif; ?>
+                                        <?php echo date('d/m/Y', strtotime($fecha_servicio)); ?>
+                                        <?php if($tiene_reserva && $pago['hora_reserva']): ?><br><small><?php echo date('H:i', strtotime($pago['hora_reserva'])); ?></small><?php endif; ?>
                                     </td>
                                     <td>Bs. <?php echo number_format($pago['monto'], 2); ?></td>
                                 </tr>
@@ -983,7 +1011,7 @@ if (isset($_GET['pdf']) && $_GET['pdf'] === '1') {
                         <!-- Cajero -->
                         <div style="font-size:12.5px;color:#94a3b8;text-align:right;margin-bottom:8px;">
                             Atendido por <strong style="color:#475569;"><?php echo htmlspecialchars($pago['cajero_nombre']); ?></strong>
-                            <span class="no-print">&nbsp;|&nbsp; Reserva #<?php echo $pago['id_reserva']; ?></span>
+                            <?php if($tiene_reserva): ?><span class="no-print">&nbsp;|&nbsp; Reserva #<?php echo (int)$pago['id_reserva']; ?></span><?php endif; ?>
                         </div>
 
                     </div><!-- /invoice-body -->

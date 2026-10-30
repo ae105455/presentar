@@ -1,52 +1,78 @@
 <?php
-$conn = new mysqli('localhost', 'root', '', 'aureamed');
-if ($conn->connect_error) {
-    die("Error de conexión: " . $conn->connect_error);
+require_once __DIR__ . '/../../admin/db_connection.php';
+require_once __DIR__ . '/../../admin/web_request_helpers.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ./index.php#reservar', true, 303);
+    exit();
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $nombre = trim($_POST['nombre']);
-    $email = trim($_POST['email']);
-    $telefono = trim($_POST['telefono']);
-    $edad = trim($_POST['edad']);
-    $servicio = trim($_POST['servicio']);
-    $fecha = trim($_POST['fecha']);
-    $hora = trim($_POST['hora']);
-    $como_nos_conocio = trim($_POST['como_nos_conocio']);
-    $mensaje = trim($_POST['mensaje']);
-    
-    if(empty($nombre) || empty($email) || empty($servicio) || empty($fecha)) {
-        $error = "❌ Por favor, completa todos los campos obligatorios.";
-    } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "❌ El email no es válido.";
+$conn = aureamed_db_connect();
+if ($conn->connect_error) {
+    http_response_code(503);
+    exit('No se pudo conectar con el sistema de reservas. Inténtalo más tarde.');
+}
+
+$obtener_campo = static function ($clave) {
+    return isset($_POST[$clave]) && is_string($_POST[$clave]) ? trim($_POST[$clave]) : '';
+};
+
+asegurarTablasSolicitudesWeb($conn);
+$nombre = $obtener_campo('nombre');
+$cedula = $obtener_campo('cedula');
+$email = $obtener_campo('email');
+$telefono = $obtener_campo('telefono');
+$edad = $obtener_campo('edad');
+$servicio = $obtener_campo('servicio');
+$fecha = $obtener_campo('fecha');
+$hora = $obtener_campo('hora');
+$como_nos_conocio = $obtener_campo('como_nos_conocio');
+$mensaje = $obtener_campo('mensaje');
+$fecha_objeto = DateTime::createFromFormat('!Y-m-d', $fecha);
+$servicios_validos = array('audiometria', 'limpieza', 'reparacion', 'moldes', 'consulta');
+
+if ($nombre === '' || $cedula === '' || $email === '' || $servicio === '' || $fecha === '' || $hora === '') {
+    $error = '❌ Por favor, completa todos los campos obligatorios.';
+} elseif (
+    strlen($nombre) > 100
+    || !preg_match('/\A[\p{L}]+(?:[\s\'-][\p{L}]+)*\z/u', $nombre)
+    || strlen($email) > 100
+    || !filter_var($email, FILTER_VALIDATE_EMAIL)
+    || strlen($telefono) > 20
+    || strlen($edad) > 20
+    || strlen($como_nos_conocio) > 50
+    || strlen($mensaje) > 5000
+) {
+    $error = '❌ Revisa el nombre, correo y longitud de los campos.';
+} elseif (strlen($cedula) > 20 || !preg_match('/\A[\p{L}\p{N}.-]+\z/u', $cedula)) {
+    $error = '❌ La cédula no es válida.';
+} elseif (!in_array($servicio, $servicios_validos, true)) {
+    $error = '❌ Selecciona un servicio válido.';
+} elseif (!$fecha_objeto || $fecha_objeto->format('Y-m-d') !== $fecha || $fecha < date('Y-m-d')) {
+    $error = '❌ Selecciona una fecha válida desde hoy en adelante.';
+} elseif (!preg_match('/\A(?:09|10|11|15|16|17):00\z/', $hora)) {
+    $error = '❌ Selecciona un horario disponible.';
+} else {
+    $stmt = $conn->prepare("INSERT INTO reservas_rapidas
+        (cedula, nombre, email, telefono, edad, servicio, fecha, hora, como_nos_conocio, mensaje)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        http_response_code(500);
+        $error = '❌ No se pudo preparar la solicitud. Inténtalo más tarde.';
+        error_log('No se pudo preparar reserva web: ' . $conn->error);
     } else {
-        $conn->query("CREATE TABLE IF NOT EXISTS reservas_rapidas (
-            id_reserva INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL,
-            email VARCHAR(100) NOT NULL,
-            telefono VARCHAR(20),
-            edad VARCHAR(20),
-            servicio VARCHAR(50) NOT NULL,
-            fecha DATE NOT NULL,
-            hora VARCHAR(10),
-            como_nos_conocio VARCHAR(50),
-            mensaje TEXT,
-            estado ENUM('pendiente', 'confirmada', 'cancelada') DEFAULT 'pendiente',
-            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )");
-        
-        $stmt = $conn->prepare("INSERT INTO reservas_rapidas (nombre, email, telefono, edad, servicio, fecha, hora, como_nos_conocio, mensaje) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssssss", $nombre, $email, $telefono, $edad, $servicio, $fecha, $hora, $como_nos_conocio, $mensaje);
-        
-        if($stmt->execute()) {
-            $exito = "✅ ¡Reserva creada exitosamente! Te contactaremos pronto.";
+        $stmt->bind_param('ssssssssss', $cedula, $nombre, $email, $telefono, $edad, $servicio, $fecha, $hora, $como_nos_conocio, $mensaje);
+        if ($stmt->execute()) {
+            $exito = '✅ ¡Reserva creada exitosamente! Te contactaremos pronto.';
         } else {
-            $error = "❌ Error al crear la reserva. Intente nuevamente.";
+            http_response_code(500);
+            $error = '❌ No se pudo guardar la solicitud. Inténtalo más tarde.';
+            error_log('No se pudo guardar reserva web: ' . $stmt->error);
         }
         $stmt->close();
     }
-    $conn->close();
 }
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -103,12 +129,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <?php if(isset($exito)): ?>
             <div class="icon success-icon">✅📅</div>
             <h2>¡Reserva Enviada!</h2>
-            <p><?php echo $exito; ?></p>
+            <p><?php echo htmlspecialchars($exito, ENT_QUOTES, 'UTF-8'); ?></p>
             <a href="./index.php" class="btn">← Volver al Inicio</a>
         <?php elseif(isset($error)): ?>
             <div class="icon error-icon">❌</div>
             <h2>Error</h2>
-            <p><?php echo $error; ?></p>
+            <p><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p>
             <a href="./index.php" class="btn">← Volver al Inicio</a>
         <?php endif; ?>
     </div>

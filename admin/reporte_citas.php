@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/attendance_helpers.php';
 
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
@@ -11,6 +12,12 @@ $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+try {
+    asegurarEstadoAtencionReservas($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
+}
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
@@ -19,7 +26,7 @@ $fecha_fin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-d');
 $buscar = isset($_GET['buscar']) ? trim($_GET['buscar']) : '';
 $buscar_sql = $conn->real_escape_string($buscar);
 
-$sql = "SELECT r.id_reserva, r.fecha_reserva, r.hora_reserva, p.nombre, p.apellido, p.telefono, s.nombre_servicio, s.precio, r.estado
+$sql = "SELECT r.id_reserva, r.fecha_reserva, r.hora_reserva, p.nombre, p.apellido, p.telefono, s.nombre_servicio, s.precio, r.estado, r.estado_atencion
         FROM reservas r
         INNER JOIN pacientes p ON r.id_paciente = p.id_paciente
         INNER JOIN servicios s ON r.id_servicio = s.id_servicio
@@ -184,7 +191,8 @@ $resultado = $conn->query($sql);
                                     <th>TELÉFONO</th>
                                     <th>SERVICIO</th>
                                     <th>TARIFA (Bs.)</th>
-                                    <th>ESTADO</th>
+                                    <th>ESTADO DE CITA</th>
+                                    <th>ASISTENCIA</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -208,11 +216,23 @@ $resultado = $conn->query($sql);
                                             <td><span class="badge badge-light"><?php echo htmlspecialchars($row['nombre_servicio']); ?></span></td>
                                             <td>Bs. <?php echo number_format($row['precio'], 2); ?></td>
                                             <td><span class="<?php echo $badge_class; ?>"><?php echo ucfirst($row['estado']); ?></span></td>
+                                            <td>
+                                                <?php
+                                                $estado_atencion_reporte = $row['estado_atencion'];
+                                                $clase_atencion_reporte = $estado_atencion_reporte === 'atendida'
+                                                    ? 'attendance-badge attendance-done'
+                                                    : ($estado_atencion_reporte === 'no_asistio' ? 'attendance-badge attendance-missed' : 'attendance-badge attendance-waiting');
+                                                $etiqueta_atencion_reporte = $estado_atencion_reporte === 'atendida'
+                                                    ? 'Atendido'
+                                                    : ($estado_atencion_reporte === 'no_asistio' ? 'No asistió' : 'Pendiente');
+                                                ?>
+                                                <span class="<?php echo $clase_atencion_reporte; ?>"><?php echo $etiqueta_atencion_reporte; ?></span>
+                                            </td>
                                         </tr>
                                     <?php endwhile; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">
+                                        <td colspan="9" class="text-center py-4 text-muted">
                                             No hay citas registradas para generar el reporte.
                                         </td>
                                     </tr>

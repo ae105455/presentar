@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db_connection.php';
+require_once __DIR__ . '/payment_helpers.php';
 
 session_start();
 if(!isset($_SESSION['usuario_id'])) {
@@ -11,33 +12,16 @@ $conn = aureamed_db_connect();
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+try {
+    asegurarTablaPagos($conn);
+} catch (RuntimeException $error) {
+    http_response_code(500);
+    die(htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8'));
+}
 require_once __DIR__ . '/comprobante_helpers.php';
 
 $nombre_usuario = isset($_SESSION['nombre']) ? $_SESSION['nombre'] : 'Usuario';
 $rol_usuario = isset($_SESSION['rol']) ? ucfirst($_SESSION['rol']) : 'Personal';
-
-// Crear tabla de pagos si no existe
-$conn->query("CREATE TABLE IF NOT EXISTS pagos (
-    id_pago INT AUTO_INCREMENT PRIMARY KEY,
-    id_reserva INT NOT NULL,
-    id_usuario INT NOT NULL,
-    monto DECIMAL(10,2) NOT NULL,
-    fecha_pago DATE NOT NULL,
-    metodo VARCHAR(100) NOT NULL DEFAULT 'Efectivo',
-    nota TEXT NULL,
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    numero_factura VARCHAR(30) NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-// Agregar columna numero_factura si no existe
-$colCheck = $conn->query("SHOW COLUMNS FROM pagos LIKE 'numero_factura'");
-if($colCheck && $colCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE pagos ADD numero_factura VARCHAR(30) NULL AFTER fecha_registro");
-}
-$colCheck2 = $conn->query("SHOW COLUMNS FROM pagos LIKE 'nota'");
-if($colCheck2 && $colCheck2->num_rows === 0) {
-    $conn->query("ALTER TABLE pagos ADD nota TEXT NULL AFTER metodo");
-}
 
 // Generar número de factura para pagos que no tienen
 $conn->query("UPDATE pagos SET numero_factura = CONCAT('FAC-', LPAD(id_pago, 6, '0')) WHERE numero_factura IS NULL OR numero_factura = ''");
@@ -62,9 +46,9 @@ $sql = "SELECT p.*,
         s.nombre_servicio, s.precio as precio_servicio,
         u.nombre as cajero_nombre
         FROM pagos p
-        JOIN reservas r ON p.id_reserva = r.id_reserva
-        JOIN pacientes x ON r.id_paciente = x.id_paciente
-        JOIN servicios s ON r.id_servicio = s.id_servicio
+        LEFT JOIN reservas r ON p.id_reserva = r.id_reserva
+        LEFT JOIN pacientes x ON r.id_paciente = x.id_paciente
+        LEFT JOIN servicios s ON r.id_servicio = s.id_servicio
         JOIN usuarios u ON p.id_usuario = u.id_usuario
         $where
         ORDER BY p.fecha_registro DESC";
@@ -442,6 +426,12 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
                     </thead>
                     <tbody>
                         <?php foreach($pagos as $p): ?>
+                        <?php
+                        $nombre_paciente = trim((string)($p['paciente_apellido'] ?? '') . ', ' . (string)($p['paciente_nombre'] ?? ''), ' ,');
+                        $nombre_paciente = $nombre_paciente !== '' ? $nombre_paciente : 'Sin reserva asociada';
+                        $nombre_servicio = trim((string)($p['nombre_servicio'] ?? ''));
+                        $nombre_servicio = $nombre_servicio !== '' ? $nombre_servicio : 'Pago sin reserva asociada';
+                        ?>
                         <tr>
                             <td>
                                 <div class="factura-number-cell">
@@ -455,11 +445,11 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
                             </td>
                             <td><?php echo date('d/m/Y', strtotime($p['fecha_pago'])); ?></td>
                             <td>
-                                <strong><?php echo htmlspecialchars($p['paciente_apellido'] . ', ' . $p['paciente_nombre']); ?></strong>
+                                <strong><?php echo htmlspecialchars($nombre_paciente); ?></strong>
                             </td>
-                            <td style="color:#64748b;"><?php echo htmlspecialchars($p['cedula']); ?></td>
-                            <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($p['nombre_servicio']); ?>">
-                                <?php echo htmlspecialchars($p['nombre_servicio']); ?>
+                            <td style="color:#64748b;"><?php echo htmlspecialchars((string)($p['cedula'] ?? '—')); ?></td>
+                            <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?php echo htmlspecialchars($nombre_servicio); ?>">
+                                <?php echo htmlspecialchars($nombre_servicio); ?>
                             </td>
                             <td>
                                 <?php
@@ -478,11 +468,8 @@ $total_mes = $conn->query("SELECT SUM(monto) as s FROM pagos WHERE MONTH(fecha_p
                             <td><span class="monto-pago"> Bs <?php echo number_format($p['monto'], 2); ?></span></td>
                             <td style="color:#64748b;font-size:12.5px;"><?php echo htmlspecialchars($p['cajero_nombre']); ?></td>
                             <td style="text-align:center;white-space:nowrap;">
-                                <a href="factura_ver.php?id=<?php echo $p['id_pago']; ?>" class="btn-ver-factura" title="Ver Factura">
-                                    <i class="fas fa-eye"></i> Ver
-                                </a>
-                                <a href="factura_ver.php?id=<?php echo $p['id_pago']; ?>&print=1" class="btn-imprimir" title="Imprimir" target="_blank">
-                                    <i class="fas fa-print"></i>
+                                <a href="factura_ver.php?id=<?php echo (int)$p['id_pago']; ?>" class="btn-ver-factura" title="Abrir el comprobante único para imprimir o descargar en PDF">
+                                    <i class="fas fa-file-invoice"></i> Ver / PDF
                                 </a>
                             </td>
                         </tr>
