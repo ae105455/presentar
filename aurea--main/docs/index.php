@@ -450,6 +450,7 @@
             <span class="paso-numero">1</span>
             <h3>Información Personal</h3>
           </div>
+          <p>Completa tus datos personales para solicitar la cita. El teléfono debe tener exactamente 8 dígitos.</p>
           
           <div class="reserva-grid">
             <div class="input-grupo">
@@ -461,7 +462,8 @@
             <div class="input-grupo">
               <label class="campo-label" for="cedula">Cédula de identidad <span aria-hidden="true">*</span></label>
               <i class="fas fa-id-card"></i>
-              <input type="text" id="cedula" name="cedula" maxlength="20" autocomplete="off" placeholder="Escribe tu cédula" pattern="[A-Za-z0-9.\-]+" title="Usa letras, números, punto o guion" required>
+              <input type="text" id="cedula" name="cedula" maxlength="20" autocomplete="off" placeholder="Escribe tu cédula" pattern="[A-Za-z0-9.\-]+" title="Usa letras, números, punto o guion" aria-describedby="error-cedula" required>
+              <small id="error-cedula" class="campo-error" role="alert"></small>
             </div>
             <div class="input-grupo">
               <label class="campo-label" for="email">Correo electrónico <span aria-hidden="true">*</span></label>
@@ -470,21 +472,23 @@
               <small id="error-email" class="campo-error" role="alert"></small>
             </div>
             <div class="input-grupo">
-              <label class="campo-label" for="telefono">Teléfono / WhatsApp</label>
+              <label class="campo-label" for="telefono">Teléfono / WhatsApp <span aria-hidden="true">*</span></label>
               <i class="fas fa-phone-alt"></i>
-              <input type="tel" id="telefono" name="telefono" maxlength="20" placeholder="Escribe tu teléfono" aria-describedby="error-telefono">
+              <input type="tel" id="telefono" name="telefono" inputmode="numeric" autocomplete="tel-national" minlength="8" maxlength="8" pattern="[0-9]{8}" title="Escribe exactamente 8 dígitos, sin espacios ni guiones" placeholder="Ej.: 71234567" aria-describedby="ayuda-telefono error-telefono" required>
+              <small id="ayuda-telefono" class="form-text">Obligatorio: exactamente 8 dígitos.</small>
               <small id="error-telefono" class="campo-error" role="alert"></small>
             </div>
             <div class="input-grupo">
-              <label class="campo-label" for="edad">Edad</label>
+              <label class="campo-label" for="edad">Edad <span aria-hidden="true">*</span></label>
               <i class="fas fa-birthday-cake"></i>
-              <select id="edad" name="edad">
+              <select id="edad" name="edad" aria-describedby="error-edad" required>
                 <option value="">¿Cuál es tu edad?</option>
                 <option value="menor">👶 Menor de 12 años</option>
                 <option value="joven">🧑 Joven (13-25 años)</option>
                 <option value="adulto">👨 Adulto (26-59 años)</option>
                 <option value="mayor">👴 Adulto Mayor (60+ años)</option>
               </select>
+              <small id="error-edad" class="campo-error" role="alert"></small>
             </div>
           </div>
         </div>
@@ -519,7 +523,7 @@
             <div class="input-grupo">
               <label class="campo-label" for="hora">Horario preferido</label>
               <i class="fas fa-clock"></i>
-              <select id="hora" name="hora" required>
+              <select id="hora" name="hora" aria-describedby="error-hora" required>
                 <option value="">Selecciona un horario</option>
                 <option value="09:00">🕘 09:00 - 10:00</option>
                 <option value="10:00">🕙 10:00 - 11:00</option>
@@ -528,6 +532,7 @@
                 <option value="16:00">🕓 16:00 - 17:00</option>
                 <option value="17:00">🕔 17:00 - 18:00</option>
               </select>
+              <small id="error-hora" class="campo-error" role="alert"></small>
             </div>
             <div class="input-grupo">
               <label class="campo-label" for="como_nos_conocio">¿Cómo nos conociste?</label>
@@ -608,8 +613,11 @@
     const cedula = form.querySelector('[name="cedula"]');
     const email = form.querySelector('[name="email"]');
     const telefono = form.querySelector('[name="telefono"]');
+    const edad = form.querySelector('[name="edad"]');
     const servicio = form.querySelector('[name="servicio"]');
     const fecha = form.querySelector('[name="fecha"]');
+    const hora = form.querySelector('[name="hora"]');
+    const campos = [nombre, cedula, email, telefono, edad, servicio, fecha, hora];
     let formularioEnviado = false;
 
     // La fecha mínima se calcula con la hora local para no mostrar un día anterior.
@@ -625,22 +633,26 @@
 
       if (campo === nombre && !valor) {
         mensaje = 'Debes llenar tu nombre completo.';
-      } else if (campo === nombre && !/^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+(?:[ '\-][A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+)*$/.test(valor)) {
-        mensaje = 'El nombre está mal escrito. Usa solo letras y espacios.';
+      } else if (campo === nombre && !/^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+(?:[ '\-][A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+)*\s+[A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+(?:[ '\-][A-Za-zÁÉÍÓÚáéíóúÜüÑñ]+)*$/.test(valor)) {
+        mensaje = 'Escribe tu nombre y apellido completos.';
       } else if (campo === cedula && !/^[A-Za-z0-9.-]{1,20}$/.test(valor)) {
         mensaje = 'Escribe una cédula válida.';
       } else if (campo === email && !valor) {
         mensaje = 'Debes llenar tu correo electrónico.';
       } else if (campo === email && !email.validity.valid) {
         mensaje = 'El correo está mal escrito. Ejemplo: nombre@correo.com.';
-      } else if (campo === telefono && valor && !/^\+?[0-9 ()-]{7,20}$/.test(valor)) {
-        mensaje = 'El teléfono está mal escrito. Usa solo números.';
+      } else if (campo === telefono && !/^[0-9]{8}$/.test(valor)) {
+        mensaje = 'Escribe un teléfono de exactamente 8 dígitos, sin espacios ni guiones.';
+      } else if (campo === edad && !edad.value) {
+        mensaje = 'Selecciona tu rango de edad.';
       } else if (campo === servicio && !servicio.value) {
         mensaje = 'Debes llenar el servicio que necesitas.';
       } else if (campo === fecha && !fecha.value) {
         mensaje = 'Debes llenar la fecha de tu cita.';
       } else if (campo === fecha && fecha.value < fecha.min) {
         mensaje = 'Selecciona una fecha desde hoy en adelante.';
+      } else if (campo === hora && !hora.value) {
+        mensaje = 'Selecciona el horario preferido.';
       }
 
       campo.setCustomValidity(mensaje);
@@ -651,7 +663,7 @@
       }
     }
 
-    [nombre, cedula, email, telefono, servicio, fecha].forEach(function (campo) {
+    campos.forEach(function (campo) {
       campo.addEventListener('invalid', function () {
         formularioEnviado = true;
         validarCampo(campo);
@@ -666,7 +678,7 @@
 
     form.addEventListener('submit', function (event) {
       formularioEnviado = true;
-      [nombre, cedula, email, telefono, servicio, fecha].forEach(validarCampo);
+      campos.forEach(validarCampo);
 
       if (!form.checkValidity()) {
         event.preventDefault();
@@ -677,7 +689,7 @@
     form.addEventListener('reset', function () {
       setTimeout(function () {
         formularioEnviado = false;
-        [nombre, cedula, email, telefono, servicio, fecha].forEach(validarCampo);
+        campos.forEach(validarCampo);
       }, 0);
     });
   }());

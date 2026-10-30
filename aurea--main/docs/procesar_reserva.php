@@ -31,19 +31,23 @@ $mensaje = $obtener_campo('mensaje');
 $fecha_objeto = DateTime::createFromFormat('!Y-m-d', $fecha);
 $servicios_validos = array('audiometria', 'limpieza', 'reparacion', 'moldes', 'consulta');
 
-if ($nombre === '' || $cedula === '' || $email === '' || $servicio === '' || $fecha === '' || $hora === '') {
+if ($nombre === '' || $cedula === '' || $email === '' || $telefono === '' || $edad === '' || $servicio === '' || $fecha === '' || $hora === '') {
     $error = '❌ Por favor, completa todos los campos obligatorios.';
 } elseif (
     strlen($nombre) > 100
     || !preg_match('/\A[\p{L}]+(?:[\s\'-][\p{L}]+)*\z/u', $nombre)
+    || !preg_match('/\s/u', $nombre)
     || strlen($email) > 100
     || !filter_var($email, FILTER_VALIDATE_EMAIL)
-    || strlen($telefono) > 20
     || strlen($edad) > 20
     || strlen($como_nos_conocio) > 50
     || strlen($mensaje) > 5000
 ) {
-    $error = '❌ Revisa el nombre, correo y longitud de los campos.';
+    $error = '❌ Revisa que escribiste tu nombre completo, correo válido y datos dentro de la longitud permitida.';
+} elseif (!preg_match('/\A[0-9]{8}\z/', $telefono)) {
+    $error = '❌ El teléfono debe tener exactamente 8 dígitos, sin espacios ni guiones.';
+} elseif (!in_array($edad, array('menor', 'joven', 'adulto', 'mayor'), true)) {
+    $error = '❌ Selecciona un rango de edad válido.';
 } elseif (strlen($cedula) > 20 || !preg_match('/\A[\p{L}\p{N}.-]+\z/u', $cedula)) {
     $error = '❌ La cédula no es válida.';
 } elseif (!in_array($servicio, $servicios_validos, true)) {
